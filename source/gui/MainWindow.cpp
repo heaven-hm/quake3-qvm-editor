@@ -179,6 +179,9 @@ void MainWindow::applyTheme(EditorTheme theme) {
         qApp->setStyleSheet(QLatin1String(file.readAll()));
     }
 
+    if (compilerPage_) {
+        compilerPage_->setTheme(theme);
+    }
     if (decompilerPage_) {
         decompilerPage_->setTheme(theme);
     }

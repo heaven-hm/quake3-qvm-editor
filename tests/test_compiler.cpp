@@ -61,3 +61,27 @@ TEST(CompilerTest, EndToEndCompileSample) {
     EXPECT_TRUE(parseRes.value().header.isValidMagic());
     EXPECT_GT(parseRes.value().instructions.size(), 0u);
 }
+
+TEST(CompilerTest, CompileSourceCodeDirectly) {
+    const char* cSource = R"(
+#include "bg_lib.h"
+int vmMain(int command, int arg0, int arg1, int arg2) {
+    return 42;
+}
+)";
+
+    qvm::CompilerConfig config;
+    config.outputDir = "build/test_compiler_out";
+    config.outputName = "direct_editor_test.qvm";
+
+    auto res = qvm::Compiler::compileSourceCode(cSource, config);
+    ASSERT_TRUE(res.hasValue()) << "Direct compilation failed: " << (res.hasError() ? res.error().message() : "");
+
+    const auto& report = res.value();
+    EXPECT_TRUE(std::filesystem::exists(report.outputQvmPath));
+    EXPECT_GT(report.qvmFileSize, 0u);
+
+    auto parseRes = qvm::QvmParser::parseFile(report.outputQvmPath);
+    ASSERT_TRUE(parseRes.hasValue());
+    EXPECT_TRUE(parseRes.value().header.isValidMagic());
+}

@@ -74,7 +74,25 @@ Result<BuildReport> BuildPipeline::execute(
     std::vector<std::filesystem::path> sourceCFiles;
     std::vector<std::filesystem::path> sourceAsmFiles;
 
-    if (config.module == ModuleType::Custom) {
+    if (std::filesystem::is_regular_file(config.sourceDir)) {
+        if (config.sourceDir.extension() == ".c") {
+            sourceCFiles.push_back(config.sourceDir);
+        } else if (config.sourceDir.extension() == ".asm") {
+            sourceAsmFiles.push_back(config.sourceDir);
+        }
+        // Look for companion asm files and runtime libraries in same directory
+        auto parent = config.sourceDir.parent_path();
+        for (const auto& entry : std::filesystem::directory_iterator(parent)) {
+            if (entry.is_regular_file()) {
+                if (entry.path().extension() == ".asm" && entry.path() != config.sourceDir) {
+                    sourceAsmFiles.push_back(entry.path());
+                } else if (entry.path().extension() == ".c" && entry.path() != config.sourceDir &&
+                           (entry.path().filename() == "bg_lib.c" || entry.path().filename() == "q_math.c")) {
+                    sourceCFiles.push_back(entry.path());
+                }
+            }
+        }
+    } else if (config.module == ModuleType::Custom) {
         // Collect all .c and .asm files in sourceDir
         for (const auto& entry : std::filesystem::recursive_directory_iterator(config.sourceDir)) {
             if (entry.is_regular_file()) {

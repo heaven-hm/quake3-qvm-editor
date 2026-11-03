@@ -38,13 +38,17 @@ Options:
   --version, -v    Display application version
 
 Compile Options:
-  --module <name>   Module type: qagame, cgame, ui (default: qagame)
-  --source <dir>    Path to project source directory (required)
+  --module <name>   Module type: qagame, cgame, ui, custom (default: qagame)
+  --source <path>   Path to project source directory or single C source file
+  --file <path>     Alias for --source (single C file or directory)
   --output <dir>    Path to output directory (default: ./build)
   --name <filename> Custom output filename (e.g. mymod.qvm)
   --toolchain <dir> Custom directory containing LCC/Q3ASM binaries
+  -D<macro>         Define preprocessor macro (e.g. -DDEBUG -DQ3_VM)
+  -I<path>          Add include search directory
   --debug           Include debug symbols (-Wf-g)
   --verbose         Enable verbose output from compiler and assembler
+  --clean           Clean intermediate assembly files (.asm)
 
 Disassemble / Pseudocode / Export Options:
   --output <path>     Output file path
@@ -53,6 +57,13 @@ Disassemble / Pseudocode / Export Options:
   --module <name>     Module type context (qagame, cgame, ui)
 
 Examples:
+  q3vm compile g_main.c --output ./build --name test.qvm
+  q3vm compile --module qagame --source ./code/game --output ./build
+  q3vm compile --file ./source/mymod.c -DDEBUG -I./include --output ./build
+  q3vm info ./qagame.qvm
+  q3vm disassemble ./qagame.qvm --output ./qagame.asm
+  q3vm pseudocode ./qagame.qvm --output ./qagame.c
+  q3vm export ./qagame.qvm --output ./build/out/
   q3vm compile --module qagame --source ./code/game --output ./build
   q3vm info ./qagame.qvm
   q3vm disassemble ./qagame.qvm --output ./qagame.asm
@@ -167,7 +178,7 @@ int handleCompile(const std::vector<std::string>& args) {
     for (size_t i = 0; i < args.size(); ++i) {
         if (args[i] == "--module" && i + 1 < args.size()) {
             config.module = qvm::stringToModuleType(args[++i]);
-        } else if (args[i] == "--source" && i + 1 < args.size()) {
+        } else if ((args[i] == "--source" || args[i] == "--file") && i + 1 < args.size()) {
             config.sourceDir = args[++i];
         } else if (args[i] == "--output" && i + 1 < args.size()) {
             config.outputDir = args[++i];
@@ -179,12 +190,28 @@ int handleCompile(const std::vector<std::string>& args) {
             config.debugSymbols = true;
         } else if (args[i] == "--verbose") {
             config.verbose = true;
+        } else if (args[i] == "--clean") {
+            config.cleanIntermediate = true;
+        } else if (args[i].starts_with("-D")) {
+            config.preprocessorDefines.push_back(args[i]);
+        } else if ((args[i] == "--define" || args[i] == "--defines") && i + 1 < args.size()) {
+            config.preprocessorDefines.push_back(args[++i]);
+        } else if (args[i].starts_with("-I")) {
+            config.includePaths.push_back(args[i].substr(2));
+        } else if ((args[i] == "--include" || args[i] == "--includes") && i + 1 < args.size()) {
+            config.includePaths.push_back(args[++i]);
+        } else if (!args[i].starts_with("--") && config.sourceDir.empty()) {
+            config.sourceDir = args[i];
         }
     }
 
     if (config.sourceDir.empty()) {
-        std::cerr << "Error: --source directory is required for compilation.\n";
+        std::cerr << "Error: source path (directory or C file) is required for compilation.\n";
         return 1;
+    }
+
+    if (std::filesystem::is_regular_file(config.sourceDir) && config.sourceDir.extension() == ".c") {
+        config.module = qvm::ModuleType::Custom;
     }
 
     std::cout << "Compiling " << qvm::moduleTypeToString(config.module)
