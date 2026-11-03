@@ -302,6 +302,30 @@ if(QVM_BUILD_TESTS)
 endif()
 
 # ==============================================================================
+# Installation Targets
+# ==============================================================================
+include(GNUInstallDirs)
+
+install(TARGETS q3vm
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
+if(QVM_BUILD_GUI)
+    install(TARGETS q3vm_gui
+        BUNDLE DESTINATION .
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    )
+endif()
+
+install(TARGETS q3lcc_tool q3asm_tool q3cpp_tool q3rcc_tool lcc_tool
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}/tools
+)
+
+install(FILES README.md LICENSE
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/quake-3-qvm-studio
+)
+
+# ==============================================================================
 # CPack Packaging
 # ==============================================================================
 include(Packaging)
