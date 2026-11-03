@@ -3,8 +3,8 @@
 
 int main(int argc, char* argv[]) {
     QApplication app(argc, argv);
-    app.setApplicationName("Quake 3 QVM Studio");
-    app.setOrganizationName("QVM Studio");
+    app.setApplicationName("Quake 3 QVM Editor");
+    app.setOrganizationName("QVM Editor");
 
     qvm::gui::MainWindow window;
     window.show();

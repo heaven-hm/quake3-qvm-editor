@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(quake3_qvm_studio
+project(quake3_qvm_editor
     VERSION 0.1.0
-    DESCRIPTION "Quake III Arena QVM Compiler & Decompiler Studio"
+    DESCRIPTION "Quake III Arena QVM Compiler & Decompiler Editor"
     LANGUAGES CXX C
 )
 
@@ -251,8 +251,8 @@ if(QVM_BUILD_GUI)
     elseif(APPLE)
         add_executable(q3vm_gui MACOSX_BUNDLE ${GUI_SOURCES})
         set_target_properties(q3vm_gui PROPERTIES
-            MACOSX_BUNDLE_BUNDLE_NAME "Quake 3 QVM Studio"
-            MACOSX_BUNDLE_GUI_IDENTIFIER "com.quake3.qvmstudio"
+            MACOSX_BUNDLE_BUNDLE_NAME "Quake 3 QVM Editor"
+            MACOSX_BUNDLE_GUI_IDENTIFIER "com.quake3.qvmeditor"
             MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
             MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
         )
@@ -327,7 +327,7 @@ install(TARGETS q3lcc_tool q3asm_tool q3cpp_tool q3rcc_tool lcc_tool
 )
 
 install(FILES README.md LICENSE
-    DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/quake-3-qvm-studio
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/quake3-qvm-editor
 )
 
 # ==============================================================================

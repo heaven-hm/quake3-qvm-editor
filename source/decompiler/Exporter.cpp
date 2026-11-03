@@ -15,7 +15,7 @@ std::string Exporter::generateDisassembly(
 
     std::stringstream ss;
     ss << "; ===========================================================================\n"
-       << "; Quake 3 QVM Studio - Bytecode Disassembly\n"
+       << "; Quake 3 QVM Editor - Bytecode Disassembly\n"
        << "; File Size: " << parsedQvm.fileSize << " bytes\n"
        << "; Module:    " << moduleTypeToString(moduleType) << "\n"
        << "; ===========================================================================\n\n";

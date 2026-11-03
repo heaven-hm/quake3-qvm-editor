@@ -17,7 +17,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     setupMenus();
     applyTheme(EditorTheme::Dark);
 
-    setWindowTitle(QString("%1 v%2 — Quake III QVM Studio").arg(kAppName.data()).arg(kVersion.data()));
+    setWindowTitle(QString("%1 v%2 — Quake III QVM Editor").arg(kAppName.data()).arg(kVersion.data()));
     resize(1300, 850);
 }
 
@@ -97,7 +97,7 @@ void MainWindow::setupUi() {
     connect(themeCombo_, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &MainWindow::onThemeChanged);
     navToolBar->addWidget(themeCombo_);
 
-    statusBar()->showMessage(tr("Quake 3 QVM Studio ready. Select Compiler or Decompiler mode."));
+    statusBar()->showMessage(tr("Quake 3 QVM Editor ready. Select Compiler or Decompiler mode."));
 }
 
 void MainWindow::setupMenus() {
@@ -110,7 +110,7 @@ void MainWindow::setupMenus() {
     viewMenu->addAction(actionDecompiler_);
 
     auto helpMenu = menuBar()->addMenu(tr("&Help"));
-    actionAbout_ = helpMenu->addAction(QIcon(":/icons/info.svg"), tr("&About Quake 3 QVM Studio"), this, &MainWindow::onAbout);
+    actionAbout_ = helpMenu->addAction(QIcon(":/icons/info.svg"), tr("&About Quake 3 QVM Editor"), this, &MainWindow::onAbout);
 }
 
 void MainWindow::onShowCompiler() {
@@ -196,7 +196,7 @@ void MainWindow::applyTheme(EditorTheme theme) {
 
 void MainWindow::onAbout() {
     QMessageBox::about(
-        this, tr("About Quake 3 QVM Studio"),
+        this, tr("About Quake 3 QVM Editor"),
         QString("<h3>%1 v%2</h3>"
                 "<p>A dedicated, modern native C++20 and Qt 6 desktop application for compiling, "
                 "inspecting, disassembling, and decompiling Quake III Arena virtual machine bytecode (.qvm).</p>"

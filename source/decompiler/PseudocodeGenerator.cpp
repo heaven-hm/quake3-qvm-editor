@@ -373,7 +373,7 @@ std::string PseudocodeGenerator::generate(
 
     // Standard disclaimer header
     ss << "/* =========================================================================\n"
-       << " * Quake 3 QVM Studio - Reconstructed C-Like Pseudocode\n"
+       << " * Quake 3 QVM Editor - Reconstructed C-Like Pseudocode\n"
        << " * \n"
        << " * Target Module:   " << moduleTypeToString(moduleType) << "\n"
        << " * Instruction Count: " << parsedQvm.header.instructionCount << "\n"

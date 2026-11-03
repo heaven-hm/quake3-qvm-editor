@@ -1,4 +1,4 @@
-# Quake 3 QVM Studio
+# Quake 3 QVM Editor
 
 <div align="center">
 
@@ -6,7 +6,7 @@
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C?logo=c%2B%2B)](https://en.cppreference.com/w/cpp/20)
 [![Qt 6](https://img.shields.io/badge/Qt-6.2%2B-41CD52?logo=qt)](https://www.qt.io/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](https://github.com/id-Software/Quake-III-Arena)
-[![Release](https://img.shields.io/badge/Release-v0.1.0-orange.svg)](https://github.com/id-Software/Quake-III-Arena)
+[![Release](https://img.shields.io/badge/Release-v0.1.0-orange.svg)](https://github.com/heaven-hm/quake3-qvm-editor/releases)
 [![Tests](https://img.shields.io/badge/Tests-20%2F20%20Passing-brightgreen.svg)](tests/)
 
 **A dedicated, modern, cross-platform Quake III Arena QVM compiler, editor, inspector, and decompiler.**  
@@ -26,7 +26,7 @@
 
 ## Overview
 
-**Quake 3 QVM Studio** unites the complete Quake III Arena virtual machine development and reverse-engineering lifecycle into a single polished application. It provides bidirectional workflows:
+**Quake 3 QVM Editor** unites the complete Quake III Arena virtual machine development and reverse-engineering lifecycle into a single polished application. It provides bidirectional workflows:
 
 1. **C Source Code &rarr; Compile &rarr; QVM Bytecode**
    - Write or edit C code directly inside the built-in IDE editor with syntax highlighting and live CLI command preview.
@@ -48,14 +48,14 @@
 ### Interactive C Code Editor & Compiler
 *In-editor C coding, real-time C syntax highlighting, starter templates, CLI command preview, build flags, and non-blocking background compilation.*
 
-![Quake 3 QVM Studio - Compiler & Editor](docs/screenshots/gui_compiler_editor.png)
+![Quake 3 QVM Editor - Compiler & Editor](docs/screenshots/gui_compiler_editor.png)
 
 ---
 
 ### QVM Bytecode Decompiler & Single-Function Inspector
 *Single-function isolation mode, opcode table with operand decoding, reconstructed pseudocode, extracted strings, and raw hex inspector.*
 
-![Quake 3 QVM Studio - Decompiler](docs/screenshots/gui_decompiler.png)
+![Quake 3 QVM Editor - Decompiler](docs/screenshots/gui_decompiler.png)
 
 </div>
 
@@ -110,7 +110,7 @@
 ## Architecture
 
 ```text
-quake-3-qvm-studio/
+quake3-qvm-editor/
 ├── CMakeLists.txt              # Root build script (Version 0.1.0)
 ├── CMakePresets.json           # Presets for Release, Debug, and CLI-only builds
 ├── LICENSE                     # GNU General Public License v2 (GPL-2.0)
@@ -166,8 +166,8 @@ quake-3-qvm-studio/
 
 ```bash
 # Clone the repository
-git clone https://github.com/heaven-hm/quake-3-qvm-studio.git
-cd quake-3-qvm-studio
+git clone https://github.com/heaven-hm/quake3-qvm-editor.git
+cd quake3-qvm-editor
 
 # Configure build directory
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
@@ -264,7 +264,7 @@ This reconstructed output is intended for mod inspection, debugging, and reverse
 
 ## Attribution & License
 
-- **Quake 3 QVM Studio** is licensed under the [GNU General Public License Version 2 (GPL-2.0)](LICENSE).
+- **Quake 3 QVM Editor** is licensed under the [GNU General Public License Version 2 (GPL-2.0)](LICENSE).
 - Portions Copyright &copy; 1999–2005 **Id Software, Inc.**
 - Original official source code repository: [https://github.com/id-Software/Quake-III-Arena](https://github.com/id-Software/Quake-III-Arena)
 - This project incorporates the original Quake III Arena virtual machine toolchain (`lcc`, `q3cpp`, `q3rcc`, `q3asm`), header definitions, and bytecode specifications originally authored by id Software.
