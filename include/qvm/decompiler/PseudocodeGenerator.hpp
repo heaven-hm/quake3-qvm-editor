@@ -16,6 +16,12 @@ public:
         const std::vector<FunctionInfo>& functions,
         ModuleType moduleType = ModuleType::QaGame);
 
+    static std::string generateSingleFunction(
+        const ParsedQvm& parsedQvm,
+        const FunctionInfo& func,
+        const std::vector<FunctionInfo>& allFunctions,
+        ModuleType moduleType = ModuleType::QaGame);
+
     static std::string generateFunction(
         const ParsedQvm& parsedQvm,
         const FunctionInfo& func,

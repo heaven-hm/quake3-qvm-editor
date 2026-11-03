@@ -3,8 +3,8 @@
 
 # Qt 6 Widgets for GUI
 if(QVM_BUILD_GUI)
-    find_package(Qt6 COMPONENTS Core Gui Widgets REQUIRED)
-    message(STATUS "Found Qt6: ${Qt6_VERSION} (Widgets, Gui, Core)")
+    find_package(Qt6 COMPONENTS Core Gui Widgets Svg REQUIRED)
+    message(STATUS "Found Qt6: ${Qt6_VERSION} (Widgets, Gui, Core, Svg)")
 endif()
 
 # GoogleTest for unit tests

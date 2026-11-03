@@ -237,6 +237,10 @@ if(QVM_BUILD_GUI)
         source/gui/models/FunctionsTreeModel.cpp
         source/gui/widgets/CodeEditor.hpp
         source/gui/widgets/CodeEditor.cpp
+        source/gui/widgets/CSyntaxHighlighter.hpp
+        source/gui/widgets/CSyntaxHighlighter.cpp
+        source/gui/widgets/AsmSyntaxHighlighter.hpp
+        source/gui/widgets/AsmSyntaxHighlighter.cpp
         source/gui/widgets/HexViewWidget.hpp
         source/gui/widgets/HexViewWidget.cpp
         resources/resources.qrc
@@ -260,6 +264,7 @@ if(QVM_BUILD_GUI)
         Qt6::Core
         Qt6::Gui
         Qt6::Widgets
+        Qt6::Svg
         qvm_compiler_core
         qvm_decompiler_core
     )

@@ -413,4 +413,29 @@ std::string PseudocodeGenerator::generate(
     return ss.str();
 }
 
+std::string PseudocodeGenerator::generateSingleFunction(
+    const ParsedQvm& parsedQvm,
+    const FunctionInfo& func,
+    const std::vector<FunctionInfo>& allFunctions,
+    ModuleType moduleType) {
+
+    auto strings = StringExtractor::extractAll(parsedQvm.sections);
+    auto stringMap = StringExtractor::buildOffsetMap(strings);
+    auto targets = ControlFlowAnalyzer::findJumpTargets(parsedQvm.instructions);
+    auto labels = ControlFlowAnalyzer::buildLabelMap(targets);
+
+    std::stringstream ss;
+    ss << "/* =========================================================================\n"
+       << " * Function Focus:  " << func.name << "\n"
+       << " * Offset:          0x" << std::hex << func.startOffset << " - 0x" << func.endOffset << "\n"
+       << " * Stack Frame:     " << std::dec << func.stackFrameSize << " bytes\n"
+       << " * Instructions:    " << (func.endIndex - func.startIndex + 1)
+       << " (index " << func.startIndex << " - " << func.endIndex << ")\n"
+       << " * Hash:            0x" << std::hex << func.hash << std::dec << "\n"
+       << " * ========================================================================= */\n\n";
+
+    ss << generateFunction(parsedQvm, func, labels, stringMap, allFunctions, moduleType);
+    return ss.str();
+}
+
 } // namespace qvm

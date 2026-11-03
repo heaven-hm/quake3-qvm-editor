@@ -14,12 +14,42 @@ CodeEditor::CodeEditor(QWidget* parent) : QPlainTextEdit(parent) {
     updateLineNumberAreaWidth(0);
     highlightCurrentLine();
 
-    QFont font("Menlo");
+    QFont font("SF Mono");
+    if (!font.exactMatch()) {
+        font.setFamily("Menlo");
+    }
+    if (!font.exactMatch()) {
+        font.setFamily("Consolas");
+    }
     font.setStyleHint(QFont::Monospace);
     font.setPointSize(11);
     setFont(font);
 
     setLineWrapMode(QPlainTextEdit::NoWrap);
+}
+
+void CodeEditor::setLanguage(EditorLanguage lang) {
+    currentLang_ = lang;
+    cHighlighter_.reset();
+    asmHighlighter_.reset();
+
+    if (lang == EditorLanguage::C) {
+        cHighlighter_ = std::make_unique<CSyntaxHighlighter>(document(), currentTheme_);
+    } else if (lang == EditorLanguage::Assembly) {
+        asmHighlighter_ = std::make_unique<AsmSyntaxHighlighter>(document(), currentTheme_);
+    }
+}
+
+void CodeEditor::setTheme(EditorTheme theme) {
+    currentTheme_ = theme;
+    if (cHighlighter_) {
+        cHighlighter_->setTheme(theme);
+    }
+    if (asmHighlighter_) {
+        asmHighlighter_->setTheme(theme);
+    }
+    lineNumberArea_->update();
+    highlightCurrentLine();
 }
 
 int CodeEditor::lineNumberAreaWidth() {
@@ -29,7 +59,7 @@ int CodeEditor::lineNumberAreaWidth() {
         max /= 10;
         ++digits;
     }
-    int space = 15 + fontMetrics().horizontalAdvance(QLatin1Char('9')) * digits;
+    int space = 18 + fontMetrics().horizontalAdvance(QLatin1Char('9')) * digits;
     return space;
 }
 
@@ -60,7 +90,14 @@ void CodeEditor::highlightCurrentLine() {
 
     if (!isReadOnly()) {
         QTextEdit::ExtraSelection selection;
-        QColor lineColor = QColor(255, 255, 255, 12);
+        QColor lineColor;
+        if (currentTheme_ == EditorTheme::Light) {
+            lineColor = QColor(0, 0, 0, 15);
+        } else if (currentTheme_ == EditorTheme::Midnight) {
+            lineColor = QColor(126, 205, 243, 20);
+        } else {
+            lineColor = QColor(179, 232, 120, 20);
+        }
         selection.format.setBackground(lineColor);
         selection.format.setProperty(QTextFormat::FullWidthSelection, true);
         selection.cursor = textCursor();
@@ -73,7 +110,21 @@ void CodeEditor::highlightCurrentLine() {
 
 void CodeEditor::lineNumberAreaPaintEvent(QPaintEvent* event) {
     QPainter painter(lineNumberArea_);
-    painter.fillRect(event->rect(), QColor(24, 26, 31));
+    QColor bgColor;
+    QColor textColor;
+
+    if (currentTheme_ == EditorTheme::Light) {
+        bgColor = QColor(241, 244, 239);
+        textColor = QColor(100, 116, 94);
+    } else if (currentTheme_ == EditorTheme::Midnight) {
+        bgColor = QColor(19, 29, 45);
+        textColor = QColor(130, 153, 182);
+    } else {
+        bgColor = QColor(23, 30, 25);
+        textColor = QColor(117, 134, 121);
+    }
+
+    painter.fillRect(event->rect(), bgColor);
 
     QTextBlock block = firstVisibleBlock();
     int blockNumber = block.blockNumber();
@@ -83,7 +134,7 @@ void CodeEditor::lineNumberAreaPaintEvent(QPaintEvent* event) {
     while (block.isValid() && top <= event->rect().bottom()) {
         if (block.isVisible() && bottom >= event->rect().top()) {
             QString number = QString::number(blockNumber + 1);
-            painter.setPen(QColor(100, 110, 125));
+            painter.setPen(textColor);
             painter.drawText(0, top, lineNumberArea_->width() - 8, fontMetrics().height(),
                              Qt::AlignRight, number);
         }

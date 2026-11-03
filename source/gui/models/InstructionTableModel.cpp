@@ -11,17 +11,39 @@ InstructionTableModel::InstructionTableModel(QObject* parent)
 void InstructionTableModel::setInstructions(std::vector<QvmInstruction> instructions) {
     beginResetModel();
     instructions_ = std::move(instructions);
+    filterStart_ = -1;
+    filterEnd_ = -1;
+    endResetModel();
+}
+
+void InstructionTableModel::setFilterRange(int startRow, int endRow) {
+    beginResetModel();
+    filterStart_ = qBound(0, startRow, static_cast<int>(instructions_.size()) - 1);
+    filterEnd_ = qBound(filterStart_, endRow, static_cast<int>(instructions_.size()) - 1);
+    endResetModel();
+}
+
+void InstructionTableModel::clearFilter() {
+    beginResetModel();
+    filterStart_ = -1;
+    filterEnd_ = -1;
     endResetModel();
 }
 
 void InstructionTableModel::clear() {
     beginResetModel();
     instructions_.clear();
+    filterStart_ = -1;
+    filterEnd_ = -1;
     endResetModel();
 }
 
 int InstructionTableModel::rowCount(const QModelIndex& parent) const {
     if (parent.isValid()) return 0;
+    if (instructions_.empty()) return 0;
+    if (filterStart_ >= 0 && filterEnd_ >= filterStart_) {
+        return (filterEnd_ - filterStart_ + 1);
+    }
     return static_cast<int>(instructions_.size());
 }
 
@@ -31,11 +53,18 @@ int InstructionTableModel::columnCount(const QModelIndex& parent) const {
 }
 
 QVariant InstructionTableModel::data(const QModelIndex& index, int role) const {
-    if (!index.isValid() || index.row() >= static_cast<int>(instructions_.size())) {
+    if (!index.isValid()) return {};
+
+    int realRow = index.row();
+    if (filterStart_ >= 0) {
+        realRow += filterStart_;
+    }
+
+    if (realRow < 0 || realRow >= static_cast<int>(instructions_.size())) {
         return {};
     }
 
-    const auto& instr = instructions_[index.row()];
+    const auto& instr = instructions_[realRow];
 
     if (role == Qt::DisplayRole) {
         switch (index.column()) {
@@ -94,8 +123,12 @@ QVariant InstructionTableModel::headerData(int section, Qt::Orientation orientat
 }
 
 const QvmInstruction* InstructionTableModel::instructionAt(int row) const {
-    if (row >= 0 && row < static_cast<int>(instructions_.size())) {
-        return &instructions_[row];
+    int realRow = row;
+    if (filterStart_ >= 0) {
+        realRow += filterStart_;
+    }
+    if (realRow >= 0 && realRow < static_cast<int>(instructions_.size())) {
+        return &instructions_[realRow];
     }
     return nullptr;
 }

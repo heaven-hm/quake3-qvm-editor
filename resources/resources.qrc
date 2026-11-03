@@ -1,5 +1,26 @@
 <RCC>
     <qresource prefix="/">
         <file>styles/dark.qss</file>
+        <file>styles/midnight.qss</file>
+        <file>styles/light.qss</file>
+        <file>icons/brand.svg</file>
+        <file>icons/compiler.svg</file>
+        <file>icons/decompiler.svg</file>
+        <file>icons/editor.svg</file>
+        <file>icons/open.svg</file>
+        <file>icons/export.svg</file>
+        <file>icons/function.svg</file>
+        <file>icons/instruction.svg</file>
+        <file>icons/code.svg</file>
+        <file>icons/asm.svg</file>
+        <file>icons/string.svg</file>
+        <file>icons/hex.svg</file>
+        <file>icons/search.svg</file>
+        <file>icons/clear.svg</file>
+        <file>icons/check.svg</file>
+        <file>icons/copy.svg</file>
+        <file>icons/info.svg</file>
+        <file>icons/theme.svg</file>
+        <file>icons/shield.svg</file>
     </qresource>
 </RCC>

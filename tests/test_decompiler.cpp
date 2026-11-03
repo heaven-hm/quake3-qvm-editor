@@ -85,3 +85,30 @@ TEST(DecompilerTest, DecompileAndExportRoundTrip) {
     EXPECT_GT(std::filesystem::file_size(outAsm), 0u);
     EXPECT_GT(std::filesystem::file_size(outC), 0u);
 }
+
+TEST(DecompilerTest, SingleFunctionInspection) {
+    std::filesystem::path testQvm = "tests/data/example_test.qvm";
+    if (!std::filesystem::exists(testQvm)) {
+        GTEST_SKIP() << "Test QVM file not found at " << testQvm;
+    }
+
+    auto parseRes = qvm::QvmParser::parseFile(testQvm);
+    ASSERT_TRUE(parseRes.hasValue());
+    const auto& parsed = parseRes.value();
+
+    auto functions = qvm::FunctionAnalyzer::analyzeFunctions(parsed.instructions);
+    ASSERT_FALSE(functions.empty());
+
+    const auto& vmMain = functions.front();
+    EXPECT_EQ(vmMain.name, "vmMain");
+
+    // Test single function pseudocode generation
+    std::string funcC = qvm::PseudocodeGenerator::generateSingleFunction(parsed, vmMain, functions);
+    EXPECT_TRUE(funcC.find("Function Focus:  vmMain") != std::string::npos);
+    EXPECT_TRUE(funcC.find("int vmMain(int arg0, int arg1, int arg2, int arg3)") != std::string::npos);
+
+    // Test single function assembly generation
+    std::string funcAsm = qvm::Exporter::generateFunctionDisassembly(parsed, vmMain);
+    EXPECT_TRUE(funcAsm.find("Function:     vmMain") != std::string::npos);
+    EXPECT_TRUE(funcAsm.find("enter") != std::string::npos);
+}

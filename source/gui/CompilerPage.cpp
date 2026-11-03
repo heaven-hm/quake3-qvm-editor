@@ -58,7 +58,7 @@ void CompilerPage::setupUi() {
     auto sourceLayout = new QHBoxLayout();
     sourceDirEdit_ = new QLineEdit(this);
     sourceDirEdit_->setPlaceholderText(tr("Select folder containing Quake III C source code..."));
-    auto browseSourceBtn = new QPushButton(tr("Browse..."), this);
+    auto browseSourceBtn = new QPushButton(QIcon(":/icons/open.svg"), tr("Browse..."), this);
     connect(browseSourceBtn, &QPushButton::clicked, this, &CompilerPage::onBrowseSource);
     sourceLayout->addWidget(sourceDirEdit_);
     sourceLayout->addWidget(browseSourceBtn);
@@ -68,7 +68,7 @@ void CompilerPage::setupUi() {
     auto outputLayout = new QHBoxLayout();
     outputDirEdit_ = new QLineEdit(this);
     outputDirEdit_->setPlaceholderText(tr("Select destination build folder (default: source/build)..."));
-    auto browseOutputBtn = new QPushButton(tr("Browse..."), this);
+    auto browseOutputBtn = new QPushButton(QIcon(":/icons/open.svg"), tr("Browse..."), this);
     connect(browseOutputBtn, &QPushButton::clicked, this, &CompilerPage::onBrowseOutput);
     outputLayout->addWidget(outputDirEdit_);
     outputLayout->addWidget(browseOutputBtn);
@@ -83,7 +83,7 @@ void CompilerPage::setupUi() {
     auto toolchainLayout = new QHBoxLayout();
     toolchainDirEdit_ = new QLineEdit(this);
     toolchainDirEdit_->setPlaceholderText(tr("Auto-detected by default (or select custom toolchain directory)"));
-    auto browseToolchainBtn = new QPushButton(tr("Browse..."), this);
+    auto browseToolchainBtn = new QPushButton(QIcon(":/icons/open.svg"), tr("Browse..."), this);
     connect(browseToolchainBtn, &QPushButton::clicked, this, &CompilerPage::onBrowseToolchain);
     toolchainLayout->addWidget(toolchainDirEdit_);
     toolchainLayout->addWidget(browseToolchainBtn);
@@ -105,18 +105,13 @@ void CompilerPage::setupUi() {
 
     // Action & Status Bar
     auto actionLayout = new QHBoxLayout();
-    compileButton_ = new QPushButton(tr("Compile Quake III QVM"), this);
+    compileButton_ = new QPushButton(QIcon(":/icons/compiler.svg"), tr("Compile Quake III QVM"), this);
+    compileButton_->setProperty("primary", true);
     compileButton_->setFixedHeight(36);
-    compileButton_->setStyleSheet(
-        "QPushButton { background-color: #2563eb; color: white; font-weight: bold; border-radius: 4px; padding: 6px 20px; }"
-        "QPushButton:hover { background-color: #1d4ed8; }"
-        "QPushButton:pressed { background-color: #1e40af; }"
-        "QPushButton:disabled { background-color: #475569; color: #94a3b8; }"
-    );
     connect(compileButton_, &QPushButton::clicked, this, &CompilerPage::onStartCompile);
 
     statusLabel_ = new QLabel(tr("Ready to compile."), this);
-    statusLabel_->setStyleSheet("color: #94a3b8; font-weight: 500;");
+    statusLabel_->setStyleSheet("color: #9cad9f; font-weight: 500;");
 
     actionLayout->addWidget(compileButton_);
     actionLayout->addWidget(statusLabel_, 1);
@@ -150,10 +145,10 @@ void CompilerPage::setupUi() {
     errorLogsEdit_->setReadOnly(true);
     errorLogsEdit_->setFont(QFont("Menlo", 10));
 
-    logTabs_->addTab(allLogsEdit_, tr("Build Output"));
-    logTabs_->addTab(lccLogsEdit_, tr("LCC Compiler"));
-    logTabs_->addTab(q3asmLogsEdit_, tr("Q3ASM Assembler"));
-    logTabs_->addTab(errorLogsEdit_, tr("Errors & Warnings"));
+    logTabs_->addTab(allLogsEdit_, QIcon(":/icons/editor.svg"), tr("Build Output"));
+    logTabs_->addTab(lccLogsEdit_, QIcon(":/icons/code.svg"), tr("LCC Compiler"));
+    logTabs_->addTab(q3asmLogsEdit_, QIcon(":/icons/asm.svg"), tr("Q3ASM Assembler"));
+    logTabs_->addTab(errorLogsEdit_, QIcon(":/icons/info.svg"), tr("Errors & Warnings"));
 
     mainLayout->addWidget(logTabs_, 1);
 }

@@ -23,6 +23,8 @@ public:
     explicit InstructionTableModel(QObject* parent = nullptr);
 
     void setInstructions(std::vector<QvmInstruction> instructions);
+    void setFilterRange(int startRow, int endRow);
+    void clearFilter();
     void clear();
 
     int rowCount(const QModelIndex& parent = QModelIndex()) const override;
@@ -34,6 +36,8 @@ public:
 
 private:
     std::vector<QvmInstruction> instructions_;
+    int filterStart_{-1};
+    int filterEnd_{-1};
 };
 
 } // namespace qvm::gui
