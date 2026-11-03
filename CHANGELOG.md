@@ -2,6 +2,14 @@
 
 All notable changes to **Quake 3 QVM Editor** are documented in this file.
 
+## [0.2.1] - 2026-11-03
+
+### Bug Fixes
+- **GUI Editor Module-Aware Compilation**: The Interactive C Editor in both the Qt GUI (macOS/Linux) and the native Win32 GUI (Windows) now compiles a single module source exactly like the CLI. Selecting `cgame`/`qagame`/`ui` links the full module implementation and uses the editor buffer as the custom `vmMain` entry, resolving previously undefined symbols such as `CG_Init`, `CG_DrawActiveFrame`, `CG_DrawBigString`, and `va`.
+- **Editor Module Root Resolution**: The compiler now locates the Quake III source tree from the configured SDK/include paths (walking up to the directory containing `cgame/` + `game/` + `qcommon/`), with a fallback to the bundled Quake III sources.
+- **Opened File Directory Hint**: Opening a C file in the Qt editor feeds its directory into include/module resolution so the matching module tree and headers are used first.
+- **Win32 GUI Routes Through `compileSourceCode`**: The Windows editor no longer writes a synthetic `g_main.c`; it uses the shared module-aware editor compile path and cleans intermediate files.
+
 ## [0.2.0] - 2026-11-03
 
 ### Features

@@ -116,6 +116,7 @@ private:
     QPlainTextEdit* errorLogsEdit_ = nullptr;
 
     EditorTheme currentTheme_{EditorTheme::Dark};
+    QString lastSourceDir_; // directory of the last opened C file (module root hint)
 };
 
 } // namespace qvm::gui

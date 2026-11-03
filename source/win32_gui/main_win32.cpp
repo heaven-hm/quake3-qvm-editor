@@ -453,6 +453,7 @@ void compileEditorCode() {
     // Configure compiler
     qvm::CompilerConfig config;
     config.module = modType;
+    config.linkFullModule = (modType != qvm::ModuleType::Custom);
     config.sourceDir = cFilePath;
     config.outputName = modName + ".qvm";
     config.outputDir = outDir;
@@ -469,7 +470,7 @@ void compileEditorCode() {
         appendLog(std::string(line));
     };
 
-    auto compileRes = qvm::Compiler::compile(config, progressCb, logCb);
+    auto compileRes = qvm::Compiler::compileSourceCode(sourceCode, config, progressCb, logCb);
     if (compileRes.hasError()) {
         appendLog("\n=== BUILD FAILED ===");
         appendLog(compileRes.error().message());

@@ -30,6 +30,10 @@ struct CompilerConfig {
     // stock module entry (e.g. cg_main.c) is still linked for its other symbols,
     // but its vmMain is renamed so the override becomes the QVM entry.
     std::filesystem::path entryOverrideFile;
+    // Set by the GUI when a concrete module is selected: compileSourceCode() then
+    // links the full module implementation (like the CLI single-file build) and
+    // uses the editor buffer as the custom vmMain entry.
+    bool linkFullModule = false;
     bool debugSymbols = false;
     bool optimize = true;
     bool verbose = false;
