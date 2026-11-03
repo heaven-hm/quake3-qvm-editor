@@ -58,7 +58,8 @@ ProcessResult ToolchainRunner::compileCFile(
     const std::vector<std::filesystem::path>& includeDirs,
     const std::vector<std::string>& defines,
     bool debugSymbols,
-    BuildLogCallback logCallback) {
+    BuildLogCallback logCallback,
+    const std::vector<std::string>& extraDefines) {
 
     std::vector<std::string> args;
     args.push_back("-S");
@@ -68,14 +69,22 @@ ProcessResult ToolchainRunner::compileCFile(
         args.push_back("-Wf-g");
     }
 
-    for (const auto& def : defines) {
-        if (!def.empty()) {
-            if (def.starts_with("-D")) {
-                args.push_back(def);
-            } else {
-                args.push_back("-D" + def);
-            }
+    auto appendDefine = [&args](const std::string& def) {
+        if (def.empty()) {
+            return;
         }
+        if (def.starts_with("-D")) {
+            args.push_back(def);
+        } else {
+            args.push_back("-D" + def);
+        }
+    };
+
+    for (const auto& def : defines) {
+        appendDefine(def);
+    }
+    for (const auto& def : extraDefines) {
+        appendDefine(def);
     }
 
     for (const auto& inc : includeDirs) {

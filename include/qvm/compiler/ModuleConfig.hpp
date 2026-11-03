@@ -16,9 +16,19 @@ struct ModuleFileList {
     std::string defaultOutputBaseName;
 };
 
+struct ModuleMapping {
+    std::string sourceFile;       // "mod.c"
+    std::string syscallFile;      // "cg_syscalls.asm", "g_syscalls.asm", "ui_syscalls.asm"
+    std::string outputFile;       // "cgame.qvm", "qagame.qvm", "ui.qvm"
+    std::vector<std::string> defaultDefines; // e.g. {"-DQ3_VM", "-DCGAME"}
+};
+
 class ModuleConfig {
 public:
     static ModuleFileList getModuleFileList(ModuleType type);
+    static ModuleMapping getModuleMapping(ModuleType type);
+    static ModuleType deduceModuleFromOutputName(std::string_view outputName);
+    static ModuleType deduceModuleFromSourceOrSyscall(std::string_view filename);
     static std::vector<std::filesystem::path> resolveSourceFiles(
         const std::filesystem::path& baseSourceDir,
         const ModuleFileList& fileList);

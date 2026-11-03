@@ -35,7 +35,8 @@ public:
         const std::vector<std::filesystem::path>& includeDirs,
         const std::vector<std::string>& defines,
         bool debugSymbols,
-        BuildLogCallback logCallback = nullptr);
+        BuildLogCallback logCallback = nullptr,
+        const std::vector<std::string>& extraDefines = {});
 
     ProcessResult assembleQvm(
         const std::vector<std::filesystem::path>& asmFiles,

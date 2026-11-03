@@ -3,6 +3,7 @@
 #include "qvm/compiler/BuildPipeline.hpp"
 #include "qvm/compiler/Compiler.hpp"
 #include "qvm/compiler/CompilerConfig.hpp"
+#include "qvm/compiler/ModuleConfig.hpp"
 #include "source/gui/widgets/CodeEditor.hpp"
 #include <QCheckBox>
 #include <QComboBox>
@@ -59,6 +60,7 @@ private slots:
     void onOpenCFile();
     void onSaveCFile();
     void onLoadStarterTemplate();
+    void onEditorModuleChanged(int index);
     void onCopyCliCommand();
     void updateCliCommandPreview();
     void onProgressUpdated(int current, int total, QString message);
@@ -74,6 +76,8 @@ private:
 
     // --- Interactive C Editor Tab UI ---
     CodeEditor* cCodeEditor_ = nullptr;
+    QComboBox* editorModuleCombo_ = nullptr;
+    QLabel* editorMappingLabel_ = nullptr;
     QLineEdit* editorOutputNameEdit_ = nullptr;
     QLineEdit* editorOutputDirEdit_ = nullptr;
     QPushButton* browseEditorOutputBtn_ = nullptr;
