@@ -2,6 +2,19 @@
 
 All notable changes to **Quake 3 QVM Editor** are documented in this file.
 
+## [0.1.1] - 2026-11-03
+
+### Features
+- **Selective Source File Compilation**: The compiler and UI no longer compile every `.c` file found in a source directory. Added support for `config.selectedFiles` to compile strictly designated source files and their configured dependencies.
+- **Dedicated GUI Source File Selector**: Added a "Source Files" selector and file browser dialog to the Project Directory Build tab in the GUI to allow picking specific `.c` and `.asm` files.
+- **CLI Multi-File Option (`--files`)**: Extended `q3vm compile` with `--files <file1> <file2> ...` to compile and link explicit file sets.
+- **Detailed Q3ASM Command Logging**: The exact Q3ASM invocation command is now captured in `BuildReport::q3asmCommand`, logged to the compilation output console, and printed in error diagnostics.
+
+### Major Bug Fixes
+- **Removal of Automatic `bg_lib.c` Linking**: Eliminated unconditional inclusion and copying of `bg_lib.c` across `QaGame`, `CGame`, `Ui`, and custom scratch builds, preventing duplicate symbol collisions (`swapfunc`, `med3`, `qsort`, `strlen`, `strcpy`, `strcmp`, `vmMain`, etc.) when user code defines custom routines or standalone entry points.
+- **Prevention of Duplicate Assembly Passes**: Pruned and isolated intermediate scratch directories before each build and deduplicated `.asm` files before assembling with Q3ASM, resolving duplicate symbol definitions caused by re-traversing stale intermediate files.
+- **Accurate Engine Trap Linking**: Preserved automatic companion syscall stubs (`g_syscalls.asm`, `cg_syscalls.asm`, `ui_syscalls.asm`) for engine traps without dragging in extraneous C library code.
+
 ## [0.1.0] - 2026-11-03
 
 ### Features

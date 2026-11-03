@@ -6,8 +6,8 @@
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C?logo=c%2B%2B)](https://en.cppreference.com/w/cpp/20)
 [![Qt 6](https://img.shields.io/badge/Qt-6.2%2B-41CD52?logo=qt)](https://www.qt.io/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)](https://github.com/id-Software/Quake-III-Arena)
-[![Release](https://img.shields.io/badge/Release-v0.1.0-orange.svg)](https://github.com/heaven-hm/quake3-qvm-editor/releases)
-[![Tests](https://img.shields.io/badge/Tests-20%2F20%20Passing-brightgreen.svg)](tests/)
+[![Release](https://img.shields.io/badge/Release-v0.1.1-orange.svg)](https://github.com/heaven-hm/quake3-qvm-editor/releases)
+[![Tests](https://img.shields.io/badge/Tests-24%2F24%20Passing-brightgreen.svg)](tests/)
 
 **A dedicated, modern, cross-platform Quake III Arena QVM compiler, editor, inspector, and decompiler.**  
 *Engineered in modern C++20 and Qt 6 Widgets, with both a graphical desktop application (GUI) and a zero-dependency command-line interface (CLI).*
@@ -111,7 +111,7 @@
 
 ```text
 quake3-qvm-editor/
-├── CMakeLists.txt              # Root build script (Version 0.1.0)
+├── CMakeLists.txt              # Root build script (Version 0.1.1)
 ├── CMakePresets.json           # Presets for Release, Debug, and CLI-only builds
 ├── LICENSE                     # GNU General Public License v2 (GPL-2.0)
 ├── README.md                   # Comprehensive project documentation
@@ -181,11 +181,11 @@ ctest --test-dir build --output-on-failure
 
 ### Running the Desktop Application
 
-- **macOS**: Mount `quake3-qvm-editor-0.1.0-macOS.dmg` and drag `quake3-qvm-editor.app` into `/Applications`, or run:
+- **macOS**: Mount `quake3-qvm-editor-0.1.1-macOS.dmg` and drag `quake3-qvm-editor.app` into `/Applications`, or run:
   ```bash
   open /Applications/quake3-qvm-editor.app
   ```
-- **Windows**: Extract `quake3-qvm-editor-0.1.0-windows-x64.zip` and double-click **`quake3-qvm-editor.exe`**.
+- **Windows**: Extract `quake3-qvm-editor-0.1.1-windows-x64.zip` and double-click **`quake3-qvm-editor.exe`**.
 - **Linux**: Execute the native binary:
   ```bash
   ./build/bin/quake3-qvm-editor
