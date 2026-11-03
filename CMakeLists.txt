@@ -217,62 +217,84 @@ add_custom_command(TARGET q3vm POST_BUILD
 # Qt 6 Desktop GUI Executable (q3vm_gui)
 # ==============================================================================
 if(QVM_BUILD_GUI)
-    set(CMAKE_AUTOMOC ON)
-    set(CMAKE_AUTORCC ON)
-    set(CMAKE_AUTOUIC ON)
+    if(QVM_HAVE_QT6)
+        set(CMAKE_AUTOMOC ON)
+        set(CMAKE_AUTORCC ON)
+        set(CMAKE_AUTOUIC ON)
 
-    set(GUI_SOURCES
-        source/gui/main.cpp
-        source/gui/MainWindow.hpp
-        source/gui/MainWindow.cpp
-        source/gui/CompilerPage.hpp
-        source/gui/CompilerPage.cpp
-        source/gui/DecompilerPage.hpp
-        source/gui/DecompilerPage.cpp
-        source/gui/models/InstructionTableModel.hpp
-        source/gui/models/InstructionTableModel.cpp
-        source/gui/models/StringsTableModel.hpp
-        source/gui/models/StringsTableModel.cpp
-        source/gui/models/FunctionsTreeModel.hpp
-        source/gui/models/FunctionsTreeModel.cpp
-        source/gui/widgets/CodeEditor.hpp
-        source/gui/widgets/CodeEditor.cpp
-        source/gui/widgets/CSyntaxHighlighter.hpp
-        source/gui/widgets/CSyntaxHighlighter.cpp
-        source/gui/widgets/AsmSyntaxHighlighter.hpp
-        source/gui/widgets/AsmSyntaxHighlighter.cpp
-        source/gui/widgets/HexViewWidget.hpp
-        source/gui/widgets/HexViewWidget.cpp
-        resources/resources.qrc
-    )
+        set(GUI_SOURCES
+            source/gui/main.cpp
+            source/gui/MainWindow.hpp
+            source/gui/MainWindow.cpp
+            source/gui/CompilerPage.hpp
+            source/gui/CompilerPage.cpp
+            source/gui/DecompilerPage.hpp
+            source/gui/DecompilerPage.cpp
+            source/gui/models/InstructionTableModel.hpp
+            source/gui/models/InstructionTableModel.cpp
+            source/gui/models/StringsTableModel.hpp
+            source/gui/models/StringsTableModel.cpp
+            source/gui/models/FunctionsTreeModel.hpp
+            source/gui/models/FunctionsTreeModel.cpp
+            source/gui/widgets/CodeEditor.hpp
+            source/gui/widgets/CodeEditor.cpp
+            source/gui/widgets/CSyntaxHighlighter.hpp
+            source/gui/widgets/CSyntaxHighlighter.cpp
+            source/gui/widgets/AsmSyntaxHighlighter.hpp
+            source/gui/widgets/AsmSyntaxHighlighter.cpp
+            source/gui/widgets/HexViewWidget.hpp
+            source/gui/widgets/HexViewWidget.cpp
+            resources/resources.qrc
+        )
 
-    if(WIN32)
-        add_executable(q3vm_gui WIN32 ${GUI_SOURCES})
-    elseif(APPLE)
-        add_executable(q3vm_gui MACOSX_BUNDLE ${GUI_SOURCES})
-        set_target_properties(q3vm_gui PROPERTIES
-            MACOSX_BUNDLE_BUNDLE_NAME "Quake 3 QVM Editor"
-            MACOSX_BUNDLE_GUI_IDENTIFIER "com.quake3.qvmeditor"
-            MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
-            MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
+        if(WIN32)
+            add_executable(q3vm_gui WIN32 ${GUI_SOURCES})
+            set_target_properties(q3vm_gui PROPERTIES OUTPUT_NAME "quake3-qvm-editor")
+        elseif(APPLE)
+            add_executable(q3vm_gui MACOSX_BUNDLE ${GUI_SOURCES})
+            set_target_properties(q3vm_gui PROPERTIES
+                OUTPUT_NAME "quake3-qvm-editor"
+                MACOSX_BUNDLE_BUNDLE_NAME "quake3-qvm-editor"
+                MACOSX_BUNDLE_GUI_IDENTIFIER "com.quake3.qvmeditor"
+                MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
+                MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
+            )
+        else()
+            add_executable(q3vm_gui ${GUI_SOURCES})
+            set_target_properties(q3vm_gui PROPERTIES OUTPUT_NAME "quake3-qvm-editor")
+        endif()
+
+        target_link_libraries(q3vm_gui PRIVATE
+            Qt6::Core
+            Qt6::Gui
+            Qt6::Widgets
+            Qt6::Svg
+            qvm_compiler_core
+            qvm_decompiler_core
+        )
+
+        target_include_directories(q3vm_gui PRIVATE
+            "${CMAKE_CURRENT_SOURCE_DIR}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/include"
         )
     else()
-        add_executable(q3vm_gui ${GUI_SOURCES})
+        # Native Win32 GUI without Qt6 dependency
+        add_executable(q3vm_gui WIN32 source/win32_gui/main_win32.cpp)
+        set_target_properties(q3vm_gui PROPERTIES OUTPUT_NAME "quake3-qvm-editor")
+
+        target_link_libraries(q3vm_gui PRIVATE
+            qvm_decompiler_core
+            qvm_compiler_core
+            comctl32
+            comdlg32
+            shell32
+        )
+
+        target_include_directories(q3vm_gui PRIVATE
+            "${CMAKE_CURRENT_SOURCE_DIR}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/include"
+        )
     endif()
-
-    target_link_libraries(q3vm_gui PRIVATE
-        Qt6::Core
-        Qt6::Gui
-        Qt6::Widgets
-        Qt6::Svg
-        qvm_compiler_core
-        qvm_decompiler_core
-    )
-
-    target_include_directories(q3vm_gui PRIVATE
-        "${CMAKE_CURRENT_SOURCE_DIR}"
-        "${CMAKE_CURRENT_SOURCE_DIR}/include"
-    )
 
     # Ensure tools directory is copied adjacent to GUI executable
     add_custom_command(TARGET q3vm_gui POST_BUILD

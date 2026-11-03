@@ -179,6 +179,18 @@ cmake --build build --parallel
 ctest --test-dir build --output-on-failure
 ```
 
+### Running the Desktop Application
+
+- **macOS**: Mount `quake3-qvm-editor-0.1.0-macOS.dmg` and drag `quake3-qvm-editor.app` into `/Applications`, or run:
+  ```bash
+  open /Applications/quake3-qvm-editor.app
+  ```
+- **Windows**: Extract `quake3-qvm-editor-0.1.0-windows-x64.zip` and double-click **`quake3-qvm-editor.exe`**.
+- **Linux**: Execute the native binary:
+  ```bash
+  ./build/bin/quake3-qvm-editor
+  ```
+
 ### Standalone CLI Only (Zero Qt Dependency)
 
 ```bash

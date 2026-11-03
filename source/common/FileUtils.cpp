@@ -142,6 +142,7 @@ std::filesystem::path FileUtils::findExecutable(
         auto exeDir = std::filesystem::path(exeBuffer).parent_path();
         if (auto found = checkCandidate(exeDir, name); !found.empty()) return found;
         if (auto found = checkCandidate(exeDir / "tools", name); !found.empty()) return found;
+        if (auto found = checkCandidate(exeDir.parent_path() / "Resources" / "tools", name); !found.empty()) return found;
     }
 #endif
 

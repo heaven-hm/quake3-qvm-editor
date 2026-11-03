@@ -20,3 +20,6 @@ All notable changes to **Quake 3 QVM Editor** are documented in this file.
 - **Header Guard Idempotency in `bg_lib.h`**: Added missing `#ifndef BG_LIB_H` guards to prevent redeclaration errors (`size_t`, `va_list`, `cmp_t`) when both `g_local.h` and `bg_lib.h` are included.
 - **Source Trailing Newline Sanitation**: Fixed compiler error `No newline at end of file` by automatically ensuring trailing newlines in in-editor source buffers.
 - **Syscall Linking Resolution**: Added bidirectional aliases for `trap_Printf` and `trap_Print` to syscall `-1` in `g_syscalls.asm` to resolve linker errors across game and client modules.
+- **macOS DMG Standalone Deployment**: Self-contained all Qt 6 frameworks, platform plugins (`libqcocoa`), and native tools inside `quake3-qvm-editor.app` with code signing and direct `/Applications` drag-and-drop link, resolving dynamic linker crashes on macOS disk images.
+- **Windows Desktop Application Support**: Provided native Windows executable `quake3-qvm-editor.exe` with GUI workspace and CLI dual-mode execution, bundling toolchain binaries with zero external DLL dependencies.
+- **Standardized Executable Naming**: Unified executable and application names to `quake3-qvm-editor.app` (macOS), `quake3-qvm-editor.exe` (Windows), and `quake3-qvm-editor` (Linux).

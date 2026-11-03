@@ -3,8 +3,23 @@
 
 # Qt 6 Widgets for GUI
 if(QVM_BUILD_GUI)
-    find_package(Qt6 COMPONENTS Core Gui Widgets Svg REQUIRED)
-    message(STATUS "Found Qt6: ${Qt6_VERSION} (Widgets, Gui, Core, Svg)")
+    if(CMAKE_CROSSCOMPILING AND WIN32)
+        set(QVM_HAVE_QT6 OFF)
+        message(STATUS "Cross-compiling for Windows; enabling native Win32 GUI editor")
+    elseif(WIN32)
+        find_package(Qt6 COMPONENTS Core Gui Widgets Svg QUIET)
+        if(Qt6_FOUND)
+            set(QVM_HAVE_QT6 ON)
+            message(STATUS "Found Qt6: ${Qt6_VERSION} (Widgets, Gui, Core, Svg)")
+        else()
+            set(QVM_HAVE_QT6 OFF)
+            message(STATUS "Qt6 not found on Windows; enabling native Win32 GUI editor")
+        endif()
+    else()
+        find_package(Qt6 COMPONENTS Core Gui Widgets Svg REQUIRED)
+        set(QVM_HAVE_QT6 ON)
+        message(STATUS "Found Qt6: ${Qt6_VERSION} (Widgets, Gui, Core, Svg)")
+    endif()
 endif()
 
 # GoogleTest for unit tests
