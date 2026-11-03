@@ -1,6 +1,5 @@
 /* ==============================================================================
    Quake 3 QVM Editor - Light Theme
-   Design inspired by project-igi-qvm-editor-web Light Theme
    ============================================================================== */
 
 QWidget {

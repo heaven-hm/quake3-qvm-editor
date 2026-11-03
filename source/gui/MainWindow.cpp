@@ -206,8 +206,7 @@ void MainWindow::onAbout() {
                 "<li><b>Q3ASM Assembler:</b> id Software QVM assembler.</li>"
                 "<li><b>C Syntax Highlighter:</b> Real-time token highlighting for pseudocode and source.</li>"
                 "<li><b>Single-Function Focus:</b> Direct inspection of isolated function ASM and pseudocode.</li>"
-                "</ul>"
-                "<p><i>Inspired by project-igi-qvm-editor-web design patterns.</i></p>")
+                "</ul>")
             .arg(kAppName.data()).arg(kVersion.data()));
 }
 

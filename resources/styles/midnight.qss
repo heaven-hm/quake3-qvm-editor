@@ -1,6 +1,5 @@
 /* ==============================================================================
-   Quake 3 QVM Editor - Midnight Theme
-   Design inspired by project-igi-qvm-editor-web (Midnight Navy + Electric Cyan Accent)
+   Quake 3 QVM Editor - Midnight Theme (Midnight Navy + Electric Cyan Accent)
    ============================================================================== */
 
 QWidget {

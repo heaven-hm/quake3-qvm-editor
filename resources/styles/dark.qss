@@ -1,6 +1,5 @@
 /* ==============================================================================
-   Quake 3 QVM Editor - Modern Dark Theme
-   Design inspired by project-igi-qvm-editor-web (Tactical Dark + Neon Lime Accent)
+   Quake 3 QVM Editor - Modern Dark Theme (Tactical Military / Terminal Accent)
    ============================================================================== */
 
 QWidget {

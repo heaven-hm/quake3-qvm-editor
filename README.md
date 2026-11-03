@@ -268,5 +268,3 @@ This reconstructed output is intended for mod inspection, debugging, and reverse
 - Portions Copyright &copy; 1999–2005 **Id Software, Inc.**
 - Original official source code repository: [https://github.com/id-Software/Quake-III-Arena](https://github.com/id-Software/Quake-III-Arena)
 - This project incorporates the original Quake III Arena virtual machine toolchain (`lcc`, `q3cpp`, `q3rcc`, `q3asm`), header definitions, and bytecode specifications originally authored by id Software.
-- UI styling and workflow inspired by [project-igi-qvm-editor-web](https://github.com/heaven-hm/project-igi-qvm-editor-web).
-- Reference C++20 architecture inspired by [project-igi-converter](https://github.com/heaven-hm/project-igi-converter).
