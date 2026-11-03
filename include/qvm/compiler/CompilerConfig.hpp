@@ -19,6 +19,7 @@ ModuleType stringToModuleType(std::string_view str) noexcept;
 struct CompilerConfig {
     ModuleType module = ModuleType::QaGame;
     std::filesystem::path sourceDir;
+    std::vector<std::filesystem::path> selectedFiles; // Explicit source files (.c/.asm) to compile & link (if non-empty, only these are compiled)
     std::filesystem::path outputDir;
     std::string outputName; // e.g. "qagame.qvm", if empty auto-determined by module
     std::filesystem::path sdkDir; // optional path to Quake III SDK root/code

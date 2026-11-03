@@ -40,6 +40,8 @@ Result<BuildReport> BuildPipeline::execute(
     std::filesystem::path intermediateDir = (isScratchBuild || isSingleFile) ?
         (std::filesystem::temp_directory_path() / "quake3_qvm_editor_scratch" / "intermediate") :
         (outDir / "intermediate");
+    std::error_code ec;
+    std::filesystem::remove_all(intermediateDir, ec);
     if (auto err = FileUtils::ensureDirectory(intermediateDir); err.isError()) {
         return err;
     }
@@ -79,13 +81,49 @@ Result<BuildReport> BuildPipeline::execute(
     std::vector<std::filesystem::path> sourceCFiles;
     std::vector<std::filesystem::path> sourceAsmFiles;
 
-    if (std::filesystem::is_regular_file(config.sourceDir)) {
+    if (!config.selectedFiles.empty()) {
+        // Compile ONLY selected files and explicitly configured dependencies
+        for (const auto& file : config.selectedFiles) {
+            auto p = file;
+            if (p.is_relative() && !config.sourceDir.empty()) {
+                auto candidate = config.sourceDir / p;
+                if (std::filesystem::exists(candidate)) {
+                    p = candidate;
+                }
+            }
+            if (p.extension() == ".c") {
+                sourceCFiles.push_back(p);
+            } else if (p.extension() == ".asm") {
+                sourceAsmFiles.push_back(p);
+            }
+        }
+        // Ensure entry-point source (g_main.c, cg_main.c, ui_main.c, main.c) is first if present
+        auto mainIt = std::find_if(sourceCFiles.begin(), sourceCFiles.end(), [](const auto& p) {
+            auto fn = p.filename().string();
+            return fn == "g_main.c" || fn == "cg_main.c" || fn == "ui_main.c" || fn == "main.c";
+        });
+        if (mainIt != sourceCFiles.end() && mainIt != sourceCFiles.begin()) {
+            std::rotate(sourceCFiles.begin(), mainIt, mainIt + 1);
+        }
+
+        // If no explicit ASM was selected, resolve companion syscall ASM from sourceDir
+        if (sourceAsmFiles.empty() && std::filesystem::is_directory(config.sourceDir)) {
+            for (const auto& entry : std::filesystem::directory_iterator(config.sourceDir)) {
+                if (entry.is_regular_file()) {
+                    auto fname = entry.path().filename().string();
+                    if (fname == "g_syscalls.asm" || fname == "cg_syscalls.asm" || fname == "ui_syscalls.asm") {
+                        sourceAsmFiles.push_back(entry.path());
+                    }
+                }
+            }
+        }
+    } else if (std::filesystem::is_regular_file(config.sourceDir)) {
         if (config.sourceDir.extension() == ".c") {
             sourceCFiles.push_back(config.sourceDir);
         } else if (config.sourceDir.extension() == ".asm") {
             sourceAsmFiles.push_back(config.sourceDir);
         }
-        // Look for companion asm files (e.g. syscalls) and runtime libraries in same directory
+        // Look for companion asm files (e.g. syscalls) in same directory (do NOT link bg_lib.c)
         auto parent = config.sourceDir.parent_path();
         for (const auto& entry : std::filesystem::directory_iterator(parent)) {
             if (entry.is_regular_file()) {
@@ -94,16 +132,17 @@ Result<BuildReport> BuildPipeline::execute(
                     (fname == "g_syscalls.asm" || fname == "cg_syscalls.asm" || fname == "ui_syscalls.asm" ||
                      fname == config.sourceDir.stem().string() + ".asm")) {
                     sourceAsmFiles.push_back(entry.path());
-                } else if (entry.path().extension() == ".c" && entry.path() != config.sourceDir &&
-                           (fname == "bg_lib.c" || fname == "q_math.c")) {
-                    sourceCFiles.push_back(entry.path());
                 }
             }
         }
     } else if (config.module == ModuleType::Custom) {
-        // Collect all .c and .asm files in sourceDir
-        for (const auto& entry : std::filesystem::recursive_directory_iterator(config.sourceDir)) {
+        // Look only in top-level sourceDir, skip intermediate/build dirs, and do NOT auto-link bg_lib.c
+        for (const auto& entry : std::filesystem::directory_iterator(config.sourceDir)) {
             if (entry.is_regular_file()) {
+                auto fname = entry.path().filename().string();
+                if (fname == "bg_lib.c" || fname == "bg_lib.asm") {
+                    continue; // Skip automatic bg_lib.c inclusion
+                }
                 if (entry.path().extension() == ".c") {
                     sourceCFiles.push_back(entry.path());
                 } else if (entry.path().extension() == ".asm") {
@@ -187,9 +226,24 @@ Result<BuildReport> BuildPipeline::execute(
         report.filesCompiled++;
     }
 
-    // Add supporting asm files
+    // Deduplicate ASM files to guarantee no duplicate files are passed to Q3ASM
+    std::vector<std::filesystem::path> finalAsmFiles;
+    auto addUniqueAsm = [&](const std::filesystem::path& p) {
+        auto absP = std::filesystem::absolute(p);
+        for (const auto& existing : finalAsmFiles) {
+            std::error_code eqEc;
+            if (std::filesystem::equivalent(existing, absP, eqEc) || existing == absP) {
+                return;
+            }
+        }
+        finalAsmFiles.push_back(absP);
+    };
+
+    for (const auto& asmFile : generatedAsmFiles) {
+        addUniqueAsm(asmFile);
+    }
     for (const auto& asmFile : sourceAsmFiles) {
-        generatedAsmFiles.push_back(asmFile);
+        addUniqueAsm(asmFile);
     }
 
     // 6. Stage 2: Assemble ASM files to QVM
@@ -203,12 +257,14 @@ Result<BuildReport> BuildPipeline::execute(
         logCallback("=== Stage 2: Assembling QVM binary with Q3ASM ===", false);
     }
 
-    auto asmRes = runner.assembleQvm(generatedAsmFiles, finalQvmPath, outDir, config.verbose, logCallback);
+    auto asmRes = runner.assembleQvm(finalAsmFiles, finalQvmPath, outDir, config.verbose, logCallback);
+    report.q3asmCommand = asmRes.commandLine;
     report.q3asmOutput = asmRes.combinedOutput;
 
     if (!asmRes.success || !std::filesystem::exists(finalQvmPath)) {
-        report.errors.push_back("Q3ASM assembly failed: " + asmRes.combinedOutput);
-        return Error(ErrorCode::AssemblyFailed, "Assembly to QVM failed:\n" + asmRes.combinedOutput);
+        std::string errDetail = "Q3ASM assembly failed:\n[Q3ASM Command]: " + asmRes.commandLine + "\n" + asmRes.combinedOutput;
+        report.errors.push_back(errDetail);
+        return Error(ErrorCode::AssemblyFailed, errDetail);
     }
 
     // 7. Validate generated QVM file

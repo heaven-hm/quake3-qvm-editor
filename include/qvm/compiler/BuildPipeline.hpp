@@ -16,6 +16,7 @@ struct BuildReport {
     int filesCompiled = 0;
     int totalFiles = 0;
     std::vector<std::string> lccOutputs;
+    std::string q3asmCommand;
     std::string q3asmOutput;
     std::vector<std::string> errors;
     std::vector<std::string> warnings;

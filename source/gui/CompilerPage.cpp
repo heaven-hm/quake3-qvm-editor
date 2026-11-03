@@ -306,6 +306,23 @@ void CompilerPage::setupDirectoryTab(QWidget* parent) {
     sourceLayout->addWidget(browseSourceBtn);
     formLayout->addRow(tr("Source Directory:"), sourceLayout);
 
+    auto filesLayout = new QHBoxLayout();
+    selectedFilesEdit_ = new QLineEdit(this);
+    selectedFilesEdit_->setPlaceholderText(tr("Selected source files (.c/.asm) to compile (leave blank for module defaults)..."));
+    browseSelectedFilesBtn_ = new QPushButton(QIcon(":/icons/open.svg"), tr("Select Files..."), this);
+    browseSelectedFilesBtn_->setToolTip(tr("Select specific .c/.asm source files and dependencies to compile"));
+    connect(browseSelectedFilesBtn_, &QPushButton::clicked, this, [this]() {
+        QString dir = sourceDirEdit_->text();
+        QStringList files = QFileDialog::getOpenFileNames(
+            this, tr("Select Source Files to Compile"), dir, tr("C/ASM Files (*.c *.asm);;All Files (*.*)"));
+        if (!files.isEmpty()) {
+            selectedFilesEdit_->setText(files.join("; "));
+        }
+    });
+    filesLayout->addWidget(selectedFilesEdit_);
+    filesLayout->addWidget(browseSelectedFilesBtn_);
+    formLayout->addRow(tr("Source Files:"), filesLayout);
+
     auto sdkDirLayout = new QHBoxLayout();
     dirSdkDirEdit_ = new QLineEdit(this);
     dirSdkDirEdit_->setPlaceholderText(tr("Quake 3 SDK or code directory (optional)..."));
@@ -588,6 +605,14 @@ void CompilerPage::onStartCompileDirectory() {
     CompilerConfig config;
     config.module = stringToModuleType(moduleCombo_->currentData().toString().toStdString());
     config.sourceDir = sourceDirEdit_->text().toStdString();
+
+    QString filesStr = selectedFilesEdit_ ? selectedFilesEdit_->text().trimmed() : "";
+    if (!filesStr.isEmpty()) {
+        for (const auto& token : filesStr.split(QRegularExpression("[;,\\s]+"), Qt::SkipEmptyParts)) {
+            config.selectedFiles.push_back(token.toStdString());
+        }
+    }
+
     config.outputDir = outputDirEdit_->text().toStdString();
     config.outputName = outputNameEdit_->text().toStdString();
     if (dirSdkDirEdit_ && !dirSdkDirEdit_->text().trimmed().isEmpty()) {

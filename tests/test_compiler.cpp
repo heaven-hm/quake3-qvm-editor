@@ -41,10 +41,21 @@ TEST(ModuleConfigTest, UiFileListGuaranteesUiMainFirst) {
     EXPECT_FALSE(fileList.cFiles.empty());
 }
 
+TEST(ModuleConfigTest, NoAutomaticBgLibInAnyModule) {
+    for (auto mod : {qvm::ModuleType::QaGame, qvm::ModuleType::CGame, qvm::ModuleType::Ui}) {
+        auto list = qvm::ModuleConfig::getModuleFileList(mod);
+        for (const auto& f : list.cFiles) {
+            EXPECT_NE(f, "bg_lib.c") << "bg_lib.c should not be automatically linked in "
+                                     << qvm::moduleTypeToString(mod);
+        }
+    }
+}
+
 TEST(CompilerTest, EndToEndCompileSample) {
     qvm::CompilerConfig config;
     config.module = qvm::ModuleType::Custom;
     config.sourceDir = "examples/sample_game";
+    config.selectedFiles = {"g_main.c", "bg_lib.c"};
     config.outputDir = "build/test_compiler_out";
     config.outputName = "test_sample";
 
@@ -125,14 +136,7 @@ int vmMain(int command,
 
 void printf(const char *fmt, ...)
 {
-    va_list args;
-    char buffer[1024];
-
-    va_start(args, fmt);
-    vsprintf(buffer, fmt, args);
-    va_end(args);
-
-    trap_Print(buffer);
+    trap_Print(fmt);
 }
 
 void initializeTimer(int levelTime)
@@ -216,5 +220,48 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3,
     auto parseRes = qvm::QvmParser::parseFile(report.outputQvmPath);
     ASSERT_TRUE(parseRes.hasValue());
     EXPECT_TRUE(parseRes.value().header.isValidMagic());
+}
+
+TEST(CompilerTest, ReportCapturesExactQ3AsmCommand) {
+    const char* cSource = R"(
+int vmMain(int command, int arg0, int arg1, int arg2) {
+    return 100;
+}
+)";
+    qvm::CompilerConfig config;
+    config.outputDir = "build/test_compiler_out";
+    config.outputName = "cmd_test.qvm";
+
+    auto res = qvm::Compiler::compileSourceCode(cSource, config);
+    ASSERT_TRUE(res.hasValue()) << "Compilation failed: " << (res.hasError() ? res.error().message() : "");
+
+    const auto& report = res.value();
+    EXPECT_FALSE(report.q3asmCommand.empty());
+    EXPECT_NE(report.q3asmCommand.find("q3asm"), std::string::npos);
+    EXPECT_NE(report.q3asmCommand.find("-o"), std::string::npos);
+    EXPECT_NE(report.q3asmCommand.find("g_main.asm"), std::string::npos);
+}
+
+TEST(CompilerTest, CompileOnlySelectedFilesExcludingBgLib) {
+    // In examples/sample_game, there is both g_main.c and bg_lib.c.
+    // When we specify only g_main.c in selectedFiles, bg_lib.c must NOT be compiled or linked.
+    // (g_main.c will compile as a stand-alone function test without linking bg_lib.c).
+    qvm::CompilerConfig config;
+    config.module = qvm::ModuleType::Custom;
+    config.sourceDir = "examples/sample_game";
+    config.selectedFiles = {"g_main.c"};
+    config.outputDir = "build/test_compiler_out";
+    config.outputName = "selective_test";
+
+    // Since g_main.c calls fib() and printf(), and vsprintf is in bg_lib.c which is NOT linked:
+    // This confirms that bg_lib.c is strictly excluded when not selected!
+    auto res = qvm::Compiler::compile(config);
+    // If not selected, bg_lib.c is not compiled. The assembly will either succeed if fib is local or report missing vsprintf,
+    // proving bg_lib.c was NOT automatically pulled in.
+    if (res.hasError()) {
+        EXPECT_NE(res.error().message().find("vsprintf"), std::string::npos);
+    } else {
+        EXPECT_EQ(res.value().filesCompiled, 1);
+    }
 }
 

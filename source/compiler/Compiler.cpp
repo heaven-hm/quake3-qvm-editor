@@ -29,6 +29,10 @@ Result<BuildReport> Compiler::compileSourceCode(
     // 3. Resolve all Quake 3 include directories (including sibling qcommon, cgame, game, ui, etc.)
     config.includePaths = FileUtils::resolveQuake3IncludeDirs(config.includePaths, config.sdkDir);
 
+    // Clean up any stale intermediate files or old bg_lib.c in scratchDir
+    std::filesystem::remove(scratchDir / "bg_lib.c", ec);
+    std::filesystem::remove_all(scratchDir / "intermediate", ec);
+
     // 4. Ensure runtime headers and syscall stubs exist in scratchDir
     auto bgLibH = scratchDir / "bg_lib.h";
     bool bgLibFound = false;
@@ -41,19 +45,6 @@ Result<BuildReport> Compiler::compileSourceCode(
     }
     if (!bgLibFound && std::filesystem::exists("third_party/quake3/code/game/bg_lib.h", ec)) {
         std::filesystem::copy_file("third_party/quake3/code/game/bg_lib.h", bgLibH, std::filesystem::copy_options::overwrite_existing, ec);
-    }
-
-    auto bgLibC = scratchDir / "bg_lib.c";
-    bool bgLibCFound = false;
-    for (const auto& inc : config.includePaths) {
-        if (std::filesystem::exists(inc / "bg_lib.c", ec)) {
-            std::filesystem::copy_file(inc / "bg_lib.c", bgLibC, std::filesystem::copy_options::overwrite_existing, ec);
-            bgLibCFound = true;
-            break;
-        }
-    }
-    if (!bgLibCFound && std::filesystem::exists("third_party/quake3/code/game/bg_lib.c", ec)) {
-        std::filesystem::copy_file("third_party/quake3/code/game/bg_lib.c", bgLibC, std::filesystem::copy_options::overwrite_existing, ec);
     }
 
     auto syscallsAsm = scratchDir / "g_syscalls.asm";
@@ -84,9 +75,10 @@ Result<BuildReport> Compiler::compileSourceCode(
         config.preprocessorDefines.push_back("-DQ3_VM");
     }
 
-    // 5. Configure compilation parameters
+    // 5. Configure compilation parameters - compile ONLY the active editor source file + syscall stubs
     config.module = ModuleType::Custom;
     config.sourceDir = scratchDir;
+    config.selectedFiles = { srcFile, syscallsAsm };
     if (config.outputDir.empty()) {
         config.outputDir = std::filesystem::current_path() / "build";
     }

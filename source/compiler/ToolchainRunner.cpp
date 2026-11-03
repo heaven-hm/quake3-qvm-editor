@@ -126,17 +126,33 @@ ProcessResult ToolchainRunner::assembleQvm(
         args.push_back(std::filesystem::absolute(asmFile).string());
     }
 
+    std::string cmdLine = "\"" + paths_.q3asmExecutable.string() + "\"";
+    for (const auto& arg : args) {
+        if (arg.find(' ') != std::string::npos || arg.find('"') != std::string::npos) {
+            cmdLine += " \"" + arg + "\"";
+        } else {
+            cmdLine += " " + arg;
+        }
+    }
+
+    if (logCallback) {
+        logCallback("[Q3ASM Command]: " + cmdLine, false);
+    }
+
     auto callback = [&](std::string_view chunk, bool isStdErr) {
         if (logCallback) {
             logCallback(chunk, isStdErr);
         }
     };
 
-    return ProcessRunner::execute(
+    auto res = ProcessRunner::execute(
         paths_.q3asmExecutable,
         args,
         std::filesystem::absolute(workingDir),
         callback);
+
+    res.commandLine = cmdLine;
+    return res;
 }
 
 } // namespace qvm

@@ -19,7 +19,7 @@ ModuleFileList ModuleConfig::getModuleFileList(ModuleType type) {
                 "g_combat.c", "g_items.c", "g_mem.c", "g_misc.c", "g_missile.c",
                 "g_mover.c", "g_session.c", "g_spawn.c", "g_svcmds.c", "g_target.c",
                 "g_team.c", "g_trigger.c", "g_utils.c", "g_weapon.c", "q_math.c",
-                "q_shared.c", "bg_lib.c"
+                "q_shared.c"
             };
             list.asmFiles = {"g_syscalls.asm"};
             break;
@@ -34,8 +34,7 @@ ModuleFileList ModuleConfig::getModuleFileList(ModuleType type) {
                 "cg_consolecmds.c", "cg_draw.c", "cg_drawtools.c", "cg_effects.c",
                 "cg_ents.c", "cg_event.c", "cg_info.c", "cg_localents.c", "cg_marks.c",
                 "cg_players.c", "cg_playerstate.c", "cg_predict.c", "cg_scoreboard.c",
-                "cg_servercmds.c", "cg_snapshot.c", "cg_view.c", "cg_weapons.c",
-                "bg_lib.c"
+                "cg_servercmds.c", "cg_snapshot.c", "cg_view.c", "cg_weapons.c"
             };
             list.asmFiles = {"cg_syscalls.asm"};
             break;
@@ -55,7 +54,7 @@ ModuleFileList ModuleConfig::getModuleFileList(ModuleType type) {
                 "ui_serverinfo.c", "ui_servers2.c", "ui_setup.c", "ui_sound.c",
                 "ui_sparena.c", "ui_specifyserver.c", "ui_splevel.c", "ui_sppostgame.c",
                 "ui_spskill.c", "ui_startserver.c", "ui_team.c", "ui_teamorders.c",
-                "ui_video.c", "bg_lib.c"
+                "ui_video.c"
             };
             list.asmFiles = {"ui_syscalls.asm"};
             break;

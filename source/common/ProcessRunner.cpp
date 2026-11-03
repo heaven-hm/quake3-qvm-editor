@@ -30,6 +30,7 @@ ProcessResult ProcessRunner::execute(
         }
         cmdLine += "\"";
     }
+    result.commandLine = cmdLine;
 
     SECURITY_ATTRIBUTES saAttr;
     saAttr.nLength = sizeof(SECURITY_ATTRIBUTES);
@@ -117,6 +118,21 @@ ProcessResult ProcessRunner::execute(
     ProcessOutputCallback callback) {
 
     ProcessResult result;
+    std::string cmdLine = "\"" + executable.string() + "\"";
+    for (const auto& arg : arguments) {
+        if (arg.find(' ') != std::string::npos || arg.find('"') != std::string::npos) {
+            cmdLine += " \"";
+            for (char c : arg) {
+                if (c == '"') cmdLine += "\\\"";
+                else cmdLine += c;
+            }
+            cmdLine += "\"";
+        } else {
+            cmdLine += " " + arg;
+        }
+    }
+    result.commandLine = cmdLine;
+
     int pipefd[2];
     if (pipe(pipefd) == -1) {
         result.stdErr = "Failed to create pipe.";

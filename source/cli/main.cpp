@@ -41,6 +41,7 @@ Compile Options:
   --module <name>   Module type: qagame, cgame, ui, custom (default: qagame)
   --source <path>   Path to project source directory or single C source file
   --file <path>     Alias for --source (single C file or directory)
+  --files <f1>...   Explicit list of selected source files (.c/.asm) to compile
   --output <dir>    Path to output directory (default: ./build)
   --name <filename> Custom output filename (e.g. mymod.qvm)
   --sdk <path>      Path to Quake III SDK root or code directory
@@ -179,6 +180,10 @@ int handleCompile(const std::vector<std::string>& args) {
     for (size_t i = 0; i < args.size(); ++i) {
         if (args[i] == "--module" && i + 1 < args.size()) {
             config.module = qvm::stringToModuleType(args[++i]);
+        } else if (args[i] == "--files" && i + 1 < args.size()) {
+            while (i + 1 < args.size() && !args[i + 1].starts_with("--")) {
+                config.selectedFiles.push_back(args[++i]);
+            }
         } else if ((args[i] == "--source" || args[i] == "--file") && i + 1 < args.size()) {
             config.sourceDir = args[++i];
         } else if (args[i] == "--output" && i + 1 < args.size()) {
@@ -205,6 +210,13 @@ int handleCompile(const std::vector<std::string>& args) {
             config.includePaths.push_back(args[++i]);
         } else if (!args[i].starts_with("--") && config.sourceDir.empty()) {
             config.sourceDir = args[i];
+        }
+    }
+
+    if (config.sourceDir.empty() && !config.selectedFiles.empty()) {
+        config.sourceDir = config.selectedFiles[0].parent_path();
+        if (config.sourceDir.empty()) {
+            config.sourceDir = ".";
         }
     }
 

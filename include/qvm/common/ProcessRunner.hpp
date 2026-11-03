@@ -15,6 +15,7 @@ struct ProcessResult {
     std::string stdErr;
     bool success = false;
     std::string combinedOutput;
+    std::string commandLine;
 };
 
 using ProcessOutputCallback = std::function<void(std::string_view chunk, bool isStdErr)>;

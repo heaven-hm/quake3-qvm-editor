@@ -89,6 +89,8 @@ private:
     // --- Directory Batch Build Tab UI ---
     QComboBox* moduleCombo_ = nullptr;
     QLineEdit* sourceDirEdit_ = nullptr;
+    QLineEdit* selectedFilesEdit_ = nullptr;
+    QPushButton* browseSelectedFilesBtn_ = nullptr;
     QLineEdit* dirSdkDirEdit_ = nullptr;
     QPushButton* browseDirSdkBtn_ = nullptr;
     QLineEdit* outputDirEdit_ = nullptr;
