@@ -2,6 +2,13 @@
 
 All notable changes to **Quake 3 QVM Editor** are documented in this file.
 
+## [0.2.2] - 2026-11-03
+
+### Maintenance
+- **Repository Cleanup**: Removed obsolete release packages (0.2.0/0.2.1), stale `release-dist` output, root `_CPack_Packages`, and `.DS_Store` artifacts.
+- **Branch Sync**: `master`, `develop`, and `feature/module-aware-compile` are synchronized at the same revision.
+- **Repackaged**: Rebuilt and re-packaged macOS (DMG/TGZ), Windows (ZIP) and Linux (TGZ) artifacts at 0.2.2.
+
 ## [0.2.1] - 2026-11-03
 
 ### Bug Fixes
