@@ -33,6 +33,7 @@ _CPack_Packages/
 .DS_Store
 .vscode/
 .idea/
+.openqodex/
 *.user
 *.swp
 *.orig
