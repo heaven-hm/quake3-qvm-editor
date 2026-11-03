@@ -37,6 +37,7 @@ _CPack_Packages/
 .vscode/
 .idea/
 .openqodex/
+.opencode/
 *.user
 *.swp
 *.orig

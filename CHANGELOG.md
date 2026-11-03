@@ -2,6 +2,22 @@
 
 All notable changes to **Quake 3 QVM Editor** are documented in this file.
 
+## [0.2.0] - 2026-11-03
+
+### Features
+- **Module-Aware Single-File Compilation**: Compiling a single module source (for example `cgame.c`) now auto-detects the target module and links the whole module (`cg_main.c`, shared `bg_*`/`q_*` sources, the matching syscall table, and `bg_lib.c`). The supplied file becomes the custom `vmMain` entry point; a generated forward-entry stub guarantees a valid QVM entry at code offset 0, and the stock entry's `vmMain` is renamed to avoid duplicate symbols. `q3vm compile <file>.c` therefore produces a complete, loadable module QVM.
+- **Automatic Module Detection From Source File Name**: `cgame.c`/`cg_*.c` map to `cgame`, `game.c`/`g_*.c` to `qagame`, and `ui.c`/`ui_*.c` to `ui`, selecting the correct syscall table and default output name.
+- **Enforced Per-Module Mapping in the GUI Editor**: Added a Target Module selector to the Interactive C Editor that fixes the `source`/`syscall`/`output` mapping, auto-selects the mapped output name, and emits `--module` in the live CLI command preview.
+- **Relocatable Particle System Resolution**: Module builds automatically include `cg_particles.c` when the resolved tree does not already define the particle symbols in `cg_marks.c`, supporting both stock Q3 and ioq3/Team-Arena-derived trees.
+- **`qcommon` Source Resolution**: Source resolution now searches `qcommon`/`code/qcommon`, so `q_shared.c` and `q_math.c` link from source trees that keep them there.
+
+### Major Bug Fixes
+- **Per-Module Syscall Enforcement**: Single module files are compiled against their mapped syscall table (`cg_syscalls.asm`/`g_syscalls.asm`/`ui_syscalls.asm`) instead of always `g_syscalls.asm`, and produce mapped output names (`cgame.qvm`/`qagame.qvm`/`ui.qvm`).
+- **Token-Boundary Module Deduction**: Output-name deduction no longer misclassifies names such as `build.qvm`, `guide.qvm`, or `circuit.qvm` as the `ui` module.
+- **Standalone Module C Runtime Linking**: Full module builds now link `bg_lib.c`, resolving `vsprintf`, `strcmp`, `atoi`, `rand`, and related C runtime references.
+- **CLI Explicit Module Respect**: `q3vm compile <file.c> --module <mod>` no longer force-overrides the module to `custom`.
+- **Extraneous Namespace Brace Fix**: Removed a duplicated `} // namespace qvm` in `Compiler.cpp` that prevented the compiler core from building.
+
 ## [0.1.1] - 2026-11-03
 
 ### Features

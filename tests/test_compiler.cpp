@@ -4,6 +4,7 @@
 #include "qvm/compiler/ModuleConfig.hpp"
 #include "qvm/compiler/ToolchainRunner.hpp"
 #include "qvm/decompiler/QvmParser.hpp"
+#include <fstream>
 
 TEST(CompilerConfigTest, ModuleTypeConversion) {
     EXPECT_EQ(qvm::moduleTypeToString(qvm::ModuleType::QaGame), "qagame");
@@ -49,6 +50,36 @@ TEST(ModuleConfigTest, NoAutomaticBgLibInAnyModule) {
                                      << qvm::moduleTypeToString(mod);
         }
     }
+}
+
+TEST(ModuleConfigTest, MappingEnforcesPerModuleSourceSyscallAndOutput) {
+    auto cg = qvm::ModuleConfig::getModuleMapping(qvm::ModuleType::CGame);
+    EXPECT_EQ(cg.sourceFile, "mod.c");
+    EXPECT_EQ(cg.syscallFile, "cg_syscalls.asm");
+    EXPECT_EQ(cg.outputFile, "cgame.qvm");
+
+    auto g = qvm::ModuleConfig::getModuleMapping(qvm::ModuleType::QaGame);
+    EXPECT_EQ(g.sourceFile, "mod.c");
+    EXPECT_EQ(g.syscallFile, "g_syscalls.asm");
+    EXPECT_EQ(g.outputFile, "qagame.qvm");
+
+    auto ui = qvm::ModuleConfig::getModuleMapping(qvm::ModuleType::Ui);
+    EXPECT_EQ(ui.sourceFile, "mod.c");
+    EXPECT_EQ(ui.syscallFile, "ui_syscalls.asm");
+    EXPECT_EQ(ui.outputFile, "ui.qvm");
+}
+
+TEST(ModuleConfigTest, DeducesModuleFromOutputNameWithTokenBoundaries) {
+    EXPECT_EQ(qvm::ModuleConfig::deduceModuleFromOutputName("cgame.qvm"), qvm::ModuleType::CGame);
+    EXPECT_EQ(qvm::ModuleConfig::deduceModuleFromOutputName("cgame_test.qvm"), qvm::ModuleType::CGame);
+    EXPECT_EQ(qvm::ModuleConfig::deduceModuleFromOutputName("qagame.qvm"), qvm::ModuleType::QaGame);
+    EXPECT_EQ(qvm::ModuleConfig::deduceModuleFromOutputName("ui.qvm"), qvm::ModuleType::Ui);
+
+    // Substrings must not cause false positives.
+    EXPECT_EQ(qvm::ModuleConfig::deduceModuleFromOutputName("build.qvm"), qvm::ModuleType::Custom);
+    EXPECT_EQ(qvm::ModuleConfig::deduceModuleFromOutputName("guide.qvm"), qvm::ModuleType::Custom);
+    EXPECT_EQ(qvm::ModuleConfig::deduceModuleFromOutputName("circuit.qvm"), qvm::ModuleType::Custom);
+    EXPECT_EQ(qvm::ModuleConfig::deduceModuleFromOutputName("custom.qvm"), qvm::ModuleType::Custom);
 }
 
 TEST(CompilerTest, EndToEndCompileSample) {
@@ -239,7 +270,7 @@ int vmMain(int command, int arg0, int arg1, int arg2) {
     EXPECT_FALSE(report.q3asmCommand.empty());
     EXPECT_NE(report.q3asmCommand.find("q3asm"), std::string::npos);
     EXPECT_NE(report.q3asmCommand.find("-o"), std::string::npos);
-    EXPECT_NE(report.q3asmCommand.find("g_main.asm"), std::string::npos);
+    EXPECT_NE(report.q3asmCommand.find("mod.asm"), std::string::npos);
 }
 
 TEST(CompilerTest, CompileOnlySelectedFilesExcludingBgLib) {
@@ -262,6 +293,95 @@ TEST(CompilerTest, CompileOnlySelectedFilesExcludingBgLib) {
         EXPECT_NE(res.error().message().find("vsprintf"), std::string::npos);
     } else {
         EXPECT_EQ(res.value().filesCompiled, 1);
+    }
+}
+
+TEST(ModuleConfigTest, DeducesModuleFromSourceFileNames) {
+    EXPECT_EQ(qvm::ModuleConfig::deduceModuleFromSourceOrSyscall("cgame.c"), qvm::ModuleType::CGame);
+    EXPECT_EQ(qvm::ModuleConfig::deduceModuleFromSourceOrSyscall("cg_main.c"), qvm::ModuleType::CGame);
+    EXPECT_EQ(qvm::ModuleConfig::deduceModuleFromSourceOrSyscall("game.c"), qvm::ModuleType::QaGame);
+    EXPECT_EQ(qvm::ModuleConfig::deduceModuleFromSourceOrSyscall("g_main.c"), qvm::ModuleType::QaGame);
+    EXPECT_EQ(qvm::ModuleConfig::deduceModuleFromSourceOrSyscall("ui.c"), qvm::ModuleType::Ui);
+    EXPECT_EQ(qvm::ModuleConfig::deduceModuleFromSourceOrSyscall("ui_main.c"), qvm::ModuleType::Ui);
+
+    // Unrelated names must not be misread as a module.
+    EXPECT_EQ(qvm::ModuleConfig::deduceModuleFromSourceOrSyscall("timer.c"), qvm::ModuleType::Custom);
+    EXPECT_EQ(qvm::ModuleConfig::deduceModuleFromSourceOrSyscall("build.c"), qvm::ModuleType::Custom);
+}
+
+TEST(CompilerTest, CustomEntryLinksFullModuleAndEmitsMappedOutput) {
+    std::filesystem::path tmpDir = "build/test_module_entry";
+    std::filesystem::remove_all(tmpDir);
+    std::filesystem::create_directories(tmpDir);
+    auto overrideFile = tmpDir / "custom_cgame_entry.c";
+    {
+        std::ofstream out(overrideFile);
+        out << "#include \"cg_local.h\"\n"
+               "void CG_Init(int serverMessageNum, int serverCommandSequence, int clientNum);\n"
+               "int vmMain(int command,int arg0,int arg1,int arg2,int arg3,int arg4,\n"
+               "           int arg5,int arg6,int arg7,int arg8,int arg9,int arg10,int arg11)\n"
+               "{\n"
+               "    if (command == 0) { CG_Init(arg0, arg1, arg2); }\n"
+               "    return 0;\n"
+               "}\n";
+    }
+
+    qvm::CompilerConfig config;
+    config.module = qvm::ModuleType::CGame;
+    config.sourceDir = "third_party/quake3/code"; // module root containing cgame/ + game/ + qcommon/
+    config.entryOverrideFile = overrideFile;      // single custom entry, calls stock CG_Init
+    config.outputDir = tmpDir;
+
+    auto res = qvm::Compiler::compile(config);
+    ASSERT_TRUE(res.hasValue()) << (res.hasError() ? res.error().message() : "");
+
+    const auto& report = res.value();
+    EXPECT_TRUE(std::filesystem::exists(report.outputQvmPath));
+    EXPECT_EQ(report.outputQvmPath.filename().string(), "cgame.qvm");
+    // The override provided vmMain; the rest of the module (incl. syscalls) was linked.
+    EXPECT_NE(report.q3asmCommand.find("cg_syscalls.asm"), std::string::npos);
+    EXPECT_NE(report.q3asmCommand.find("cg_main.asm"), std::string::npos);
+}
+
+TEST(CompilerTest, SingleFileModsEnforcePerModuleSyscallMapping) {
+    struct Case {
+        qvm::ModuleType module;
+        const char* output;
+        const char* syscall;
+    };
+    const Case cases[] = {
+        {qvm::ModuleType::QaGame, "qagame.qvm", "g_syscalls.asm"},
+        {qvm::ModuleType::CGame, "cgame.qvm", "cg_syscalls.asm"},
+        {qvm::ModuleType::Ui, "ui.qvm", "ui_syscalls.asm"},
+    };
+
+    // trap_Print is present in all three syscall tables (qagame -1, cgame -1, ui -2),
+    // so this single source must link against whichever table the module selects.
+    const char* cSource = R"(
+#include "bg_lib.h"
+void trap_Print(const char *s);
+int vmMain(int command, int arg0, int arg1, int arg2) {
+    if (command == 0) {
+        trap_Print("init\n");
+    }
+    return 0;
+}
+)";
+
+    for (const auto& c : cases) {
+        qvm::CompilerConfig config;
+        config.module = c.module;
+        config.outputDir = "build/test_compiler_out";
+
+        auto res = qvm::Compiler::compileSourceCode(cSource, config);
+        ASSERT_TRUE(res.hasValue()) << "module " << qvm::moduleTypeToString(c.module) << ": "
+                                    << (res.hasError() ? res.error().message() : "");
+
+        const auto& report = res.value();
+        EXPECT_EQ(report.outputQvmPath.filename().string(), c.output);
+        EXPECT_NE(report.q3asmCommand.find(c.syscall), std::string::npos)
+            << "expected " << c.output << " to link " << c.syscall;
+        EXPECT_NE(report.q3asmCommand.find("mod.asm"), std::string::npos);
     }
 }
 
