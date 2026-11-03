@@ -127,6 +127,13 @@ void MainWindow::onShowDecompiler() {
     statusBar()->showMessage(tr("Mode: QVM Decompiler (Bytecode .qvm -> Assembly & C Pseudocode)"));
 }
 
+void MainWindow::openQvmFile(const QString& filePath) {
+    if (decompilerPage_) {
+        onShowDecompiler();
+        decompilerPage_->loadQvmFile(filePath);
+    }
+}
+
 void MainWindow::onCompilationSucceeded(const QString& qvmFilePath) {
     auto reply = QMessageBox::question(
         this, tr("Compilation Complete"),

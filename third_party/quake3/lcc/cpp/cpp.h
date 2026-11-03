@@ -1,7 +1,7 @@
 #define	INS	32768		/* input buffer */
 #define	OBS	4096		/* outbut buffer */
 #define	NARG	32		/* Max number arguments to a macro */
-#define	NINCLUDE 32		/* Max number of include directories (-I) */
+#define	NINCLUDE 128		/* Max number of include directories (-I) */
 #define	NIF	32		/* depth of nesting of #if */
 #ifndef EOF
 #define	EOF	(-1)

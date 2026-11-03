@@ -17,6 +17,7 @@ class MainWindow : public QMainWindow {
 
 public:
     explicit MainWindow(QWidget* parent = nullptr);
+    void openQvmFile(const QString& filePath);
 
 public slots:
     void applyTheme(EditorTheme theme);

@@ -1,20 +1,61 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include "cpp.h"
 
 Includelist	includelist[NINCLUDE];
 
 extern char	*objname;
 
+static int is_abs_path(const char *p)
+{
+	if (!p || !*p)
+		return 0;
+	if (p[0] == '/' || p[0] == '\\')
+		return 1;
+	if (((p[0] >= 'a' && p[0] <= 'z') || (p[0] >= 'A' && p[0] <= 'Z')) && p[1] == ':')
+		return 1;
+	return 0;
+}
+
 void appendDirToIncludeList( char *dir )
 {
 	int i;
 	char *fqdir;
+	char cleanDir[1024];
+	int len;
+	struct stat st;
 
-	fqdir = (char *)newstring( (uchar *)includelist[NINCLUDE-1].file, 256, 0 );
-	strcat( fqdir, "/" );
-	strcat( fqdir, dir );
+	if (!dir || !*dir)
+		return;
+
+	strncpy(cleanDir, dir, sizeof(cleanDir) - 1);
+	cleanDir[sizeof(cleanDir) - 1] = '\0';
+	len = strlen(cleanDir);
+	while (len > 1 && (cleanDir[len - 1] == '/' || cleanDir[len - 1] == '\\')) {
+		cleanDir[--len] = '\0';
+	}
+
+	if (is_abs_path(cleanDir)) {
+		fqdir = (char *)domalloc(len + 1);
+		strcpy(fqdir, cleanDir);
+	} else if (stat(cleanDir, &st) == 0 && S_ISDIR(st.st_mode)) {
+		fqdir = (char *)domalloc(len + 1);
+		strcpy(fqdir, cleanDir);
+	} else {
+		const char *base = includelist[NINCLUDE-1].file;
+		if (!base || !*base || !strcmp(base, ".")) {
+			fqdir = (char *)domalloc(len + 1);
+			strcpy(fqdir, cleanDir);
+		} else {
+			int baseLen = strlen(base);
+			fqdir = (char *)domalloc(baseLen + 1 + len + 1);
+			strcpy(fqdir, base);
+			strcat(fqdir, "/");
+			strcat(fqdir, cleanDir);
+		}
+	}
 
 	//avoid adding it more than once
 	for (i=NINCLUDE-2; i>=0; i--) {
@@ -38,7 +79,7 @@ void appendDirToIncludeList( char *dir )
 void
 doinclude(Tokenrow *trp)
 {
-	char fname[256], iname[256];
+	char fname[1024], iname[1024];
 	Includelist *ip;
 	int angled, len, fd, i;
 
@@ -76,7 +117,7 @@ doinclude(Tokenrow *trp)
 
 	appendDirToIncludeList( basepath( fname ) );
 
-	if (fname[0]=='/') {
+	if (is_abs_path(fname)) {
 		fd = open(fname, 0);
 		strcpy(iname, fname);
 	} else for (fd = -1,i=NINCLUDE-1; i>=0; i--) {

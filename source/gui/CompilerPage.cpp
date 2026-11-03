@@ -445,10 +445,46 @@ void CompilerPage::onStartCompileEditor() {
     }
 
     // Parse includes
-    QString incs = editorIncludesEdit_->text();
-    for (const auto& inc : incs.split(' ', Qt::SkipEmptyParts)) {
-        QString cleanInc = inc.startsWith("-I") ? inc.mid(2) : inc;
-        config.includePaths.push_back(cleanInc.toStdString());
+    QString incs = editorIncludesEdit_->text().trimmed();
+    QString currentInc;
+    bool inQuotes = false;
+    QChar quoteChar;
+    QStringList incTokens;
+    for (int i = 0; i < incs.length(); ++i) {
+        QChar c = incs[i];
+        if ((c == '"' || c == '\'') && !inQuotes) {
+            inQuotes = true;
+            quoteChar = c;
+        } else if (inQuotes && c == quoteChar) {
+            inQuotes = false;
+        } else if (!inQuotes && (c == ' ' || c == ';' || c == '\t')) {
+            if (!currentInc.isEmpty()) {
+                incTokens.append(currentInc);
+                currentInc.clear();
+            }
+        } else {
+            currentInc.append(c);
+        }
+    }
+    if (!currentInc.isEmpty()) {
+        incTokens.append(currentInc);
+    }
+
+    for (QString inc : incTokens) {
+        inc = inc.trimmed();
+        if (inc.startsWith("-I")) {
+            inc = inc.mid(2).trimmed();
+        }
+        if ((inc.startsWith('"') && inc.endsWith('"')) || (inc.startsWith('\'') && inc.endsWith('\''))) {
+            inc = inc.mid(1, inc.length() - 2);
+        }
+        QFileInfo fi(inc);
+        if (fi.isFile()) {
+            inc = fi.dir().absolutePath();
+        }
+        if (!inc.isEmpty()) {
+            config.includePaths.push_back(inc.toStdString());
+        }
     }
 
     // Reset console

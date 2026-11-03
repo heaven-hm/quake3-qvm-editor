@@ -279,3 +279,22 @@ THE PROGRAM TO OPERATE WITH ANY OTHER PROGRAMS), EVEN IF SUCH HOLDER OR
 OTHER PARTY HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
 
 END OF TERMS AND CONDITIONS
+
+===========================================================================
+Quake 3 QVM Studio - Original Source Attribution
+===========================================================================
+Portions Copyright (C) 1999-2005 Id Software, Inc.
+Quake III Arena source code is free software; you can redistribute it
+and/or modify it under the terms of the GNU General Public License as
+published by the Free Software Foundation; either version 2 of the License,
+or (at your option) any later version.
+
+Original Official Source Repository:
+https://github.com/id-Software/Quake-III-Arena
+
+This project incorporates the original Quake III Arena virtual machine
+compiler toolchain (lcc, q3cpp, q3rcc, q3asm), bytecode opcode definitions,
+header structures, and VM specifications from id Software's official
+Quake-III-Arena release.
+===========================================================================
+

@@ -9,5 +9,12 @@ int main(int argc, char* argv[]) {
     qvm::gui::MainWindow window;
     window.show();
 
+    if (argc > 1) {
+        QString arg = QString::fromLocal8Bit(argv[1]);
+        if (arg.endsWith(".qvm", Qt::CaseInsensitive)) {
+            window.openQvmFile(arg);
+        }
+    }
+
     return app.exec();
 }

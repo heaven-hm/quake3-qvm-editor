@@ -21,6 +21,14 @@ test_export/
 test_compiler_out/
 test_decompiler_out/
 
+# CPack and distribution
+_CPack_Packages/
+*.dmg
+*.tar.gz
+*.zip
+*.deb
+*.rpm
+
 # IDE & OS
 .DS_Store
 .vscode/
