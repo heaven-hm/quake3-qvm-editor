@@ -1,4 +1,5 @@
 #include "source/gui/widgets/CodeEditor.hpp"
+#include <QFontDatabase>
 #include <QPainter>
 #include <QTextBlock>
 
@@ -14,14 +15,7 @@ CodeEditor::CodeEditor(QWidget* parent) : QPlainTextEdit(parent) {
     updateLineNumberAreaWidth(0);
     highlightCurrentLine();
 
-    QFont font("SF Mono");
-    if (!font.exactMatch()) {
-        font.setFamily("Menlo");
-    }
-    if (!font.exactMatch()) {
-        font.setFamily("Consolas");
-    }
-    font.setStyleHint(QFont::Monospace);
+    QFont font = QFontDatabase::systemFont(QFontDatabase::FixedFont);
     font.setPointSize(11);
     setFont(font);
 

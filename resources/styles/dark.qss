@@ -6,7 +6,7 @@
 QWidget {
     background-color: #101512;
     color: #e7eee9;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+    font-family: "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
     font-size: 13px;
     selection-background-color: #b3e878;
     selection-color: #142009;
@@ -221,7 +221,7 @@ QPlainTextEdit, QTextEdit {
     color: #d4d4d4;
     border: 1px solid #303b33;
     border-radius: 5px;
-    font-family: "SF Mono", Menlo, Consolas, "Courier New", monospace;
+    font-family: Menlo, Consolas, "Courier New", monospace;
     font-size: 12px;
 }
 
