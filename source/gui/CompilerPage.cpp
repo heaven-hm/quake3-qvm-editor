@@ -54,7 +54,10 @@ void printf(const char* fmt, ...)
     vsprintf(text, fmt, argptr);
     va_end(argptr);
 
-    trap_Printf(text);
+    // trap_Print is available in the qagame, cgame and ui syscall tables.
+    // (trap_Printf only exists for qagame, so trap_Print keeps this template
+    //  linkable against whichever module is selected.)
+    trap_Print(text);
 }
 
 int fibonacci(int n)
@@ -226,7 +229,21 @@ void CompilerPage::setupEditorTab(QWidget* parent) {
     formLayout->setContentsMargins(10, 10, 10, 10);
     formLayout->setSpacing(8);
 
-    editorOutputNameEdit_ = new QLineEdit("custom.qvm", this);
+    editorModuleCombo_ = new QComboBox(this);
+    editorModuleCombo_->addItem(tr("qagame (Server Game Logic)"), "qagame");
+    editorModuleCombo_->addItem(tr("cgame (Client Game & Rendering)"), "cgame");
+    editorModuleCombo_->addItem(tr("ui (Quake III Arena Menu & UI)"), "ui");
+    editorModuleCombo_->addItem(tr("custom (Standalone Mod)"), "custom");
+    connect(editorModuleCombo_, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, &CompilerPage::onEditorModuleChanged);
+    formLayout->addRow(tr("Target Module:"), editorModuleCombo_);
+
+    editorMappingLabel_ = new QLabel(this);
+    editorMappingLabel_->setWordWrap(true);
+    editorMappingLabel_->setStyleSheet("color: #7ecdf3; font-family: monospace; font-size: 11px;");
+    formLayout->addRow(tr("Enforced Mapping:"), editorMappingLabel_);
+
+    editorOutputNameEdit_ = new QLineEdit("qagame.qvm", this);
     connect(editorOutputNameEdit_, &QLineEdit::textChanged, this, &CompilerPage::updateCliCommandPreview);
     formLayout->addRow(tr("Output Name:"), editorOutputNameEdit_);
 
@@ -420,12 +437,39 @@ void CompilerPage::onSaveCFile() {
 
 void CompilerPage::onLoadStarterTemplate() {
     cCodeEditor_->setPlainText(QString::fromUtf8(kDefaultVmMainTemplate));
-    editorOutputNameEdit_->setText("custom.qvm");
+    // Re-apply the active target module mapping (auto-selects output + syscall).
+    onEditorModuleChanged(editorModuleCombo_ ? editorModuleCombo_->currentIndex() : 0);
+}
+
+void CompilerPage::onEditorModuleChanged(int /*index*/) {
+    if (!editorModuleCombo_) {
+        return;
+    }
+
+    const ModuleType module =
+        stringToModuleType(editorModuleCombo_->currentData().toString().toStdString());
+    const ModuleMapping mapping = ModuleConfig::getModuleMapping(module);
+
+    // Enforce the fixed per-module mapping: one source, one syscall table, one output.
+    editorOutputNameEdit_->setText(QString::fromStdString(mapping.outputFile));
+
+    if (editorMappingLabel_) {
+        editorMappingLabel_->setText(
+            tr("source: %1    syscall: %2    output: %3")
+                .arg(QString::fromStdString(mapping.sourceFile))
+                .arg(QString::fromStdString(mapping.syscallFile))
+                .arg(QString::fromStdString(mapping.outputFile)));
+    }
+
     updateCliCommandPreview();
 }
 
 void CompilerPage::updateCliCommandPreview() {
-    QString cmd = "q3vm compile --source ./source --output " + editorOutputDirEdit_->text();
+    QString cmd = "q3vm compile --source ./source";
+    if (editorModuleCombo_) {
+        cmd += " --module " + editorModuleCombo_->currentData().toString();
+    }
+    cmd += " --output " + editorOutputDirEdit_->text();
     if (!editorOutputNameEdit_->text().isEmpty()) {
         cmd += " --name " + editorOutputNameEdit_->text();
     }
@@ -519,7 +563,7 @@ void CompilerPage::onStartCompileEditor() {
     }
 
     CompilerConfig config;
-    config.module = ModuleType::Custom;
+    config.module = stringToModuleType(editorModuleCombo_->currentData().toString().toStdString());
     config.outputDir = editorOutputDirEdit_->text().toStdString();
     config.outputName = editorOutputNameEdit_->text().toStdString();
     if (editorSdkDirEdit_ && !editorSdkDirEdit_->text().trimmed().isEmpty()) {

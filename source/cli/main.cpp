@@ -2,6 +2,7 @@
 #include "qvm/common/FileUtils.hpp"
 #include "qvm/common/Version.hpp"
 #include "qvm/compiler/Compiler.hpp"
+#include "qvm/compiler/ModuleConfig.hpp"
 #include "qvm/decompiler/Exporter.hpp"
 #include "qvm/decompiler/FunctionAnalyzer.hpp"
 #include "qvm/decompiler/PseudocodeGenerator.hpp"
@@ -176,10 +177,12 @@ int handleDecompile(const std::string& qvmFile, qvm::ModuleType modType) {
 
 int handleCompile(const std::vector<std::string>& args) {
     qvm::CompilerConfig config;
+    bool moduleExplicit = false;
 
     for (size_t i = 0; i < args.size(); ++i) {
         if (args[i] == "--module" && i + 1 < args.size()) {
             config.module = qvm::stringToModuleType(args[++i]);
+            moduleExplicit = true;
         } else if (args[i] == "--files" && i + 1 < args.size()) {
             while (i + 1 < args.size() && !args[i + 1].starts_with("--")) {
                 config.selectedFiles.push_back(args[++i]);
@@ -225,8 +228,11 @@ int handleCompile(const std::vector<std::string>& args) {
         return 1;
     }
 
-    if (std::filesystem::is_regular_file(config.sourceDir) && config.sourceDir.extension() == ".c") {
-        config.module = qvm::ModuleType::Custom;
+    if (!moduleExplicit && std::filesystem::is_regular_file(config.sourceDir) && config.sourceDir.extension() == ".c") {
+        // Deduce the target module from the file name (e.g. cgame.c -> cgame) so a
+        // single module source links the right syscall table and builds the module.
+        config.module = qvm::ModuleConfig::deduceModuleFromSourceOrSyscall(
+            config.sourceDir.filename().string());
     }
 
     std::cout << "Compiling " << qvm::moduleTypeToString(config.module)
