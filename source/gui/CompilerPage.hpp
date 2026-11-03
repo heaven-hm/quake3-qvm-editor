@@ -51,6 +51,9 @@ private slots:
     void onBrowseSource();
     void onBrowseOutput();
     void onBrowseToolchain();
+    void onBrowseSdk();
+    void onBrowseEditorOutputDir();
+    void onSdkDirChanged(const QString& sdkPath);
     void onStartCompileDirectory();
     void onStartCompileEditor();
     void onOpenCFile();
@@ -73,6 +76,9 @@ private:
     CodeEditor* cCodeEditor_ = nullptr;
     QLineEdit* editorOutputNameEdit_ = nullptr;
     QLineEdit* editorOutputDirEdit_ = nullptr;
+    QPushButton* browseEditorOutputBtn_ = nullptr;
+    QLineEdit* editorSdkDirEdit_ = nullptr;
+    QPushButton* browseSdkBtn_ = nullptr;
     QLineEdit* editorDefinesEdit_ = nullptr;
     QLineEdit* editorIncludesEdit_ = nullptr;
     QCheckBox* editorDebugCheck_ = nullptr;
@@ -83,6 +89,8 @@ private:
     // --- Directory Batch Build Tab UI ---
     QComboBox* moduleCombo_ = nullptr;
     QLineEdit* sourceDirEdit_ = nullptr;
+    QLineEdit* dirSdkDirEdit_ = nullptr;
+    QPushButton* browseDirSdkBtn_ = nullptr;
     QLineEdit* outputDirEdit_ = nullptr;
     QLineEdit* outputNameEdit_ = nullptr;
     QLineEdit* toolchainDirEdit_ = nullptr;

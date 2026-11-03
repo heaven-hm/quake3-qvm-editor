@@ -22,7 +22,8 @@ public:
         std::string_view name,
         const std::vector<std::filesystem::path>& customSearchPaths = {});
     static std::vector<std::filesystem::path> resolveQuake3IncludeDirs(
-        const std::vector<std::filesystem::path>& userIncludes = {});
+        const std::vector<std::filesystem::path>& userIncludes = {},
+        const std::filesystem::path& sdkDir = {});
 };
 
 } // namespace qvm

@@ -36,10 +36,10 @@ int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
 {
     if (command == 0) {
         // Command 0: VM Init
-        printf("^2[QVM Studio]^7 Module loaded successfully!\n");
-        printf("^3[QVM Studio]^7 fibonacci(7) = %i\n", fibonacci(7));
+        printf("^2[QVM Editor]^7 Module loaded successfully!\n");
+        printf("^3[QVM Editor]^7 fibonacci(7) = %i\n", fibonacci(7));
     } else {
-        printf("^1[QVM Studio]^7 Unknown engine command: %i\n", command);
+        printf("^1[QVM Editor]^7 Unknown engine command: %i\n", command);
     }
 
     return 0;
@@ -230,9 +230,25 @@ void CompilerPage::setupEditorTab(QWidget* parent) {
     connect(editorOutputNameEdit_, &QLineEdit::textChanged, this, &CompilerPage::updateCliCommandPreview);
     formLayout->addRow(tr("Output Name:"), editorOutputNameEdit_);
 
+    auto outDirLayout = new QHBoxLayout();
     editorOutputDirEdit_ = new QLineEdit("build/out", this);
     connect(editorOutputDirEdit_, &QLineEdit::textChanged, this, &CompilerPage::updateCliCommandPreview);
-    formLayout->addRow(tr("Output Directory:"), editorOutputDirEdit_);
+    browseEditorOutputBtn_ = new QPushButton(QIcon(":/icons/open.svg"), tr("Browse..."), this);
+    connect(browseEditorOutputBtn_, &QPushButton::clicked, this, &CompilerPage::onBrowseEditorOutputDir);
+    outDirLayout->addWidget(editorOutputDirEdit_);
+    outDirLayout->addWidget(browseEditorOutputBtn_);
+    formLayout->addRow(tr("Output Directory:"), outDirLayout);
+
+    auto sdkLayout = new QHBoxLayout();
+    editorSdkDirEdit_ = new QLineEdit(this);
+    editorSdkDirEdit_->setPlaceholderText(tr("Quake 3 SDK or code directory (optional)..."));
+    connect(editorSdkDirEdit_, &QLineEdit::textChanged, this, &CompilerPage::onSdkDirChanged);
+    browseSdkBtn_ = new QPushButton(QIcon(":/icons/open.svg"), tr("Select Quake 3 SDK..."), this);
+    browseSdkBtn_->setToolTip(tr("Select Quake 3 SDK or code directory to resolve all libraries & headers (qcommon, cgame, game, ui)"));
+    connect(browseSdkBtn_, &QPushButton::clicked, this, &CompilerPage::onBrowseSdk);
+    sdkLayout->addWidget(editorSdkDirEdit_);
+    sdkLayout->addWidget(browseSdkBtn_);
+    formLayout->addRow(tr("Quake 3 SDK:"), sdkLayout);
 
     editorDefinesEdit_ = new QLineEdit("-DQ3_VM", this);
     editorDefinesEdit_->setPlaceholderText(tr("-DDEBUG -DQ3_VM"));
@@ -289,6 +305,25 @@ void CompilerPage::setupDirectoryTab(QWidget* parent) {
     sourceLayout->addWidget(sourceDirEdit_);
     sourceLayout->addWidget(browseSourceBtn);
     formLayout->addRow(tr("Source Directory:"), sourceLayout);
+
+    auto sdkDirLayout = new QHBoxLayout();
+    dirSdkDirEdit_ = new QLineEdit(this);
+    dirSdkDirEdit_->setPlaceholderText(tr("Quake 3 SDK or code directory (optional)..."));
+    browseDirSdkBtn_ = new QPushButton(QIcon(":/icons/open.svg"), tr("Select Quake 3 SDK..."), this);
+    browseDirSdkBtn_->setToolTip(tr("Select Quake 3 SDK or code directory to resolve all libraries & headers (qcommon, cgame, game, ui)"));
+    connect(browseDirSdkBtn_, &QPushButton::clicked, this, [this]() {
+        QString dir = QFileDialog::getExistingDirectory(
+            this, tr("Select Quake 3 SDK or Code Directory"), dirSdkDirEdit_->text());
+        if (!dir.isEmpty()) {
+            dirSdkDirEdit_->setText(dir);
+            if (editorSdkDirEdit_ && editorSdkDirEdit_->text().isEmpty()) {
+                editorSdkDirEdit_->setText(dir);
+            }
+        }
+    });
+    sdkDirLayout->addWidget(dirSdkDirEdit_);
+    sdkDirLayout->addWidget(browseDirSdkBtn_);
+    formLayout->addRow(tr("Quake 3 SDK:"), sdkDirLayout);
 
     auto outputLayout = new QHBoxLayout();
     outputDirEdit_ = new QLineEdit(this);
@@ -377,6 +412,9 @@ void CompilerPage::updateCliCommandPreview() {
     if (!editorOutputNameEdit_->text().isEmpty()) {
         cmd += " --name " + editorOutputNameEdit_->text();
     }
+    if (editorSdkDirEdit_ && !editorSdkDirEdit_->text().trimmed().isEmpty()) {
+        cmd += " --sdk \"" + editorSdkDirEdit_->text().trimmed() + "\"";
+    }
     if (editorDebugCheck_->isChecked()) {
         cmd += " --debug";
     }
@@ -424,6 +462,38 @@ void CompilerPage::onBrowseToolchain() {
     }
 }
 
+void CompilerPage::onBrowseEditorOutputDir() {
+    QString dir = QFileDialog::getExistingDirectory(
+        this, tr("Select Output Directory"), editorOutputDirEdit_->text());
+    if (!dir.isEmpty()) {
+        editorOutputDirEdit_->setText(dir);
+        updateCliCommandPreview();
+    }
+}
+
+void CompilerPage::onBrowseSdk() {
+    QString current = editorSdkDirEdit_->text();
+    if (current.isEmpty() && dirSdkDirEdit_) {
+        current = dirSdkDirEdit_->text();
+    }
+    QString dir = QFileDialog::getExistingDirectory(
+        this, tr("Select Quake III SDK or Code Directory"), current);
+    if (!dir.isEmpty()) {
+        editorSdkDirEdit_->setText(dir);
+        if (dirSdkDirEdit_ && dirSdkDirEdit_->text().isEmpty()) {
+            dirSdkDirEdit_->setText(dir);
+        }
+        onSdkDirChanged(dir);
+    }
+}
+
+void CompilerPage::onSdkDirChanged(const QString& sdkPath) {
+    if (!sdkPath.trimmed().isEmpty()) {
+        statusLabel_->setText(tr("Quake III SDK set: %1 (qcommon, cgame, game, ui auto-resolved)").arg(sdkPath));
+    }
+    updateCliCommandPreview();
+}
+
 void CompilerPage::onStartCompileEditor() {
     QString sourceCode = cCodeEditor_->toPlainText();
     if (sourceCode.trimmed().isEmpty()) {
@@ -435,6 +505,9 @@ void CompilerPage::onStartCompileEditor() {
     config.module = ModuleType::Custom;
     config.outputDir = editorOutputDirEdit_->text().toStdString();
     config.outputName = editorOutputNameEdit_->text().toStdString();
+    if (editorSdkDirEdit_ && !editorSdkDirEdit_->text().trimmed().isEmpty()) {
+        config.sdkDir = editorSdkDirEdit_->text().trimmed().toStdString();
+    }
     config.debugSymbols = editorDebugCheck_->isChecked();
     config.verbose = editorVerboseCheck_->isChecked();
 
@@ -517,6 +590,9 @@ void CompilerPage::onStartCompileDirectory() {
     config.sourceDir = sourceDirEdit_->text().toStdString();
     config.outputDir = outputDirEdit_->text().toStdString();
     config.outputName = outputNameEdit_->text().toStdString();
+    if (dirSdkDirEdit_ && !dirSdkDirEdit_->text().trimmed().isEmpty()) {
+        config.sdkDir = dirSdkDirEdit_->text().trimmed().toStdString();
+    }
     config.toolchainDir = toolchainDirEdit_->text().toStdString();
     config.debugSymbols = debugSymbolsCheck_->isChecked();
     config.verbose = verboseCheck_->isChecked();

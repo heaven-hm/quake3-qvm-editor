@@ -4,6 +4,7 @@
 #include <commctrl.h>
 #include <commdlg.h>
 #include <shellapi.h>
+#include <shlobj.h>
 
 #include "qvm/common/Error.hpp"
 #include "qvm/common/FileUtils.hpp"
@@ -52,8 +53,9 @@ enum ControlId {
     ID_EDIT_C_SOURCE = 1023,
     ID_BTN_LOAD_C = 1024,
     ID_BTN_SAVE_C = 1025,
-    ID_BTN_COMPILE_C = 1026,
-    ID_EDIT_BUILD_LOG = 1027,
+    ID_BTN_SELECT_SDK = 1026,
+    ID_BTN_COMPILE_C = 1027,
+    ID_EDIT_BUILD_LOG = 1028,
     // Menu items
     IDM_FILE_OPEN_QVM = 2001,
     IDM_FILE_LOAD_C = 2002,
@@ -100,6 +102,7 @@ struct AppState {
     HWND hEditOutDir = nullptr;
     HWND hBtnLoadC = nullptr;
     HWND hBtnSaveC = nullptr;
+    HWND hBtnSelectSdk = nullptr;
     HWND hBtnCompileC = nullptr;
     HWND hEditCSource = nullptr;
     HWND hLblLog = nullptr;
@@ -348,6 +351,24 @@ void saveCFileDialog() {
     }
 }
 
+void selectSdkDialog() {
+    BROWSEINFOW bi{};
+    bi.hwndOwner = g_app.hWndMain;
+    bi.lpszTitle = L"Select Quake III Arena SDK or code directory:";
+    bi.ulFlags = BIF_RETURNONLYFSDIRS | BIF_NEWDIALOGSTYLE;
+    LPITEMIDLIST pidl = SHBrowseForFolderW(&bi);
+    if (pidl != 0) {
+        wchar_t path[MAX_PATH];
+        if (SHGetPathFromIDListW(pidl, path)) {
+            std::string sdkPath = toString(path);
+            setWindowText(g_app.hEditIncludes, sdkPath);
+            appendLog("Selected Quake III SDK: " + sdkPath);
+            appendLog("Auto-resolving sibling headers (qcommon, cgame, game, ui)...");
+        }
+        CoTaskMemFree(pidl);
+    }
+}
+
 void exportAllDialog() {
     if (g_app.currentParsed.instructions.empty()) {
         MessageBoxW(g_app.hWndMain, L"Please open a QVM file first before exporting.", L"Info", MB_ICONINFORMATION);
@@ -416,14 +437,18 @@ void compileEditorCode() {
     // Build include dirs
     std::vector<std::filesystem::path> includeDirs;
     std::string incStr = getWindowText(g_app.hEditIncludes);
+    std::filesystem::path sdkPath;
     if (!incStr.empty()) {
         std::istringstream iss(incStr);
         std::string item;
         while (std::getline(iss, item, ';')) {
-            if (!item.empty()) includeDirs.push_back(item);
+            if (!item.empty()) {
+                includeDirs.push_back(item);
+                if (sdkPath.empty()) sdkPath = item;
+            }
         }
     }
-    includeDirs = qvm::FileUtils::resolveQuake3IncludeDirs(includeDirs);
+    includeDirs = qvm::FileUtils::resolveQuake3IncludeDirs(includeDirs, sdkPath);
 
     // Configure compiler
     qvm::CompilerConfig config;
@@ -431,6 +456,7 @@ void compileEditorCode() {
     config.sourceDir = cFilePath;
     config.outputName = modName + ".qvm";
     config.outputDir = outDir;
+    config.sdkDir = sdkPath;
     config.includePaths = includeDirs;
     config.preprocessorDefines.push_back("-DQ3_VM");
     config.cleanIntermediate = false;
@@ -509,6 +535,7 @@ void switchTab(int tabIndex) {
     ShowWindow(g_app.hEditOutDir, showComp);
     ShowWindow(g_app.hBtnLoadC, showComp);
     ShowWindow(g_app.hBtnSaveC, showComp);
+    ShowWindow(g_app.hBtnSelectSdk, showComp);
     ShowWindow(g_app.hBtnCompileC, showComp);
     ShowWindow(g_app.hEditCSource, showComp);
     ShowWindow(g_app.hLblLog, showComp);
@@ -559,6 +586,7 @@ void resizeControls(int width, int height) {
     int btnBarTop = editorTop + editorH + 10;
     SetWindowPos(g_app.hBtnLoadC, nullptr, 20, btnBarTop, 120, 28, SWP_NOZORDER);
     SetWindowPos(g_app.hBtnSaveC, nullptr, 150, btnBarTop, 120, 28, SWP_NOZORDER);
+    SetWindowPos(g_app.hBtnSelectSdk, nullptr, 280, btnBarTop, 170, 28, SWP_NOZORDER);
     SetWindowPos(g_app.hBtnCompileC, nullptr, width - 210, btnBarTop, 180, 30, SWP_NOZORDER);
 
     int logTop = btnBarTop + 38;
@@ -687,6 +715,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
                 WS_CHILD | BS_PUSHBUTTON, 0, 0, 0, 0, hWnd, (HMENU)ID_BTN_SAVE_C, g_app.hInstance, nullptr);
             SendMessageW(g_app.hBtnSaveC, WM_SETFONT, (WPARAM)g_app.hUiFont, TRUE);
 
+            g_app.hBtnSelectSdk = CreateWindowExW(0, L"BUTTON", L"Select Quake 3 SDK...",
+                WS_CHILD | BS_PUSHBUTTON, 0, 0, 0, 0, hWnd, (HMENU)ID_BTN_SELECT_SDK, g_app.hInstance, nullptr);
+            SendMessageW(g_app.hBtnSelectSdk, WM_SETFONT, (WPARAM)g_app.hUiFont, TRUE);
+
             g_app.hBtnCompileC = CreateWindowExW(0, L"BUTTON", L"▶ Compile to QVM",
                 WS_CHILD | BS_PUSHBUTTON | BS_DEFPUSHBUTTON, 0, 0, 0, 0, hWnd, (HMENU)ID_BTN_COMPILE_C, g_app.hInstance, nullptr);
             SendMessageW(g_app.hBtnCompileC, WM_SETFONT, (WPARAM)g_app.hUiFont, TRUE);
@@ -774,6 +806,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) 
 
                 case ID_BTN_SAVE_C:
                     saveCFileDialog();
+                    break;
+
+                case ID_BTN_SELECT_SDK:
+                    selectSdkDialog();
                     break;
 
                 case ID_BTN_COMPILE_C:

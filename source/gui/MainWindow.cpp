@@ -50,7 +50,7 @@ void MainWindow::setupUi() {
     auto brandIcon = new QLabel(this);
     brandIcon->setPixmap(QIcon(":/icons/brand.svg").pixmap(24, 24));
 
-    auto brandTitle = new QLabel(tr("<b>QUAKE 3</b> <span style='color:#b3e878; font-weight:700;'>QVM STUDIO</span>"), this);
+    auto brandTitle = new QLabel(tr("<b>QUAKE 3</b> <span style='color:#b3e878; font-weight:700;'>QVM EDITOR</span>"), this);
     brandTitle->setStyleSheet("font-size: 13px;");
 
     brandLayout->addWidget(brandIcon);

@@ -36,8 +36,10 @@ Result<BuildReport> BuildPipeline::execute(
     }
 
     bool isScratchBuild = (config.sourceDir.string().find("scratch") != std::string::npos);
-    std::filesystem::path intermediateDir = isScratchBuild ?
-        (config.sourceDir / "intermediate") : (outDir / "intermediate");
+    bool isSingleFile = std::filesystem::is_regular_file(config.sourceDir);
+    std::filesystem::path intermediateDir = (isScratchBuild || isSingleFile) ?
+        (std::filesystem::temp_directory_path() / "quake3_qvm_editor_scratch" / "intermediate") :
+        (outDir / "intermediate");
     if (auto err = FileUtils::ensureDirectory(intermediateDir); err.isError()) {
         return err;
     }
@@ -65,7 +67,7 @@ Result<BuildReport> BuildPipeline::execute(
         }
     }
     includeDirs.push_back(config.sourceDir);
-    includeDirs = FileUtils::resolveQuake3IncludeDirs(includeDirs);
+    includeDirs = FileUtils::resolveQuake3IncludeDirs(includeDirs, config.sdkDir);
 
     // Resolve preprocessor defines
     std::vector<std::string> defines = moduleFiles.defaultDefines;
@@ -83,14 +85,17 @@ Result<BuildReport> BuildPipeline::execute(
         } else if (config.sourceDir.extension() == ".asm") {
             sourceAsmFiles.push_back(config.sourceDir);
         }
-        // Look for companion asm files and runtime libraries in same directory
+        // Look for companion asm files (e.g. syscalls) and runtime libraries in same directory
         auto parent = config.sourceDir.parent_path();
         for (const auto& entry : std::filesystem::directory_iterator(parent)) {
             if (entry.is_regular_file()) {
-                if (entry.path().extension() == ".asm" && entry.path() != config.sourceDir) {
+                auto fname = entry.path().filename().string();
+                if (entry.path().extension() == ".asm" && entry.path() != config.sourceDir &&
+                    (fname == "g_syscalls.asm" || fname == "cg_syscalls.asm" || fname == "ui_syscalls.asm" ||
+                     fname == config.sourceDir.stem().string() + ".asm")) {
                     sourceAsmFiles.push_back(entry.path());
                 } else if (entry.path().extension() == ".c" && entry.path() != config.sourceDir &&
-                           (entry.path().filename() == "bg_lib.c" || entry.path().filename() == "q_math.c")) {
+                           (fname == "bg_lib.c" || fname == "q_math.c")) {
                     sourceCFiles.push_back(entry.path());
                 }
             }
@@ -225,7 +230,7 @@ Result<BuildReport> BuildPipeline::execute(
     report.success = true;
 
     // Optional cleanup
-    if (config.cleanIntermediate || isScratchBuild) {
+    if (config.cleanIntermediate || isScratchBuild || isSingleFile) {
         std::error_code ec;
         std::filesystem::remove_all(intermediateDir, ec);
     }

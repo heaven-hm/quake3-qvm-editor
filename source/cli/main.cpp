@@ -43,6 +43,7 @@ Compile Options:
   --file <path>     Alias for --source (single C file or directory)
   --output <dir>    Path to output directory (default: ./build)
   --name <filename> Custom output filename (e.g. mymod.qvm)
+  --sdk <path>      Path to Quake III SDK root or code directory
   --toolchain <dir> Custom directory containing LCC/Q3ASM binaries
   -D<macro>         Define preprocessor macro (e.g. -DDEBUG -DQ3_VM)
   -I<path>          Add include search directory
@@ -184,6 +185,8 @@ int handleCompile(const std::vector<std::string>& args) {
             config.outputDir = args[++i];
         } else if (args[i] == "--name" && i + 1 < args.size()) {
             config.outputName = args[++i];
+        } else if (args[i] == "--sdk" && i + 1 < args.size()) {
+            config.sdkDir = args[++i];
         } else if (args[i] == "--toolchain" && i + 1 < args.size()) {
             config.toolchainDir = args[++i];
         } else if (args[i] == "--debug") {

@@ -21,6 +21,7 @@ struct CompilerConfig {
     std::filesystem::path sourceDir;
     std::filesystem::path outputDir;
     std::string outputName; // e.g. "qagame.qvm", if empty auto-determined by module
+    std::filesystem::path sdkDir; // optional path to Quake III SDK root/code
     std::vector<std::filesystem::path> includePaths;
     std::vector<std::string> preprocessorDefines;
     std::filesystem::path toolchainDir; // if empty, auto-detect

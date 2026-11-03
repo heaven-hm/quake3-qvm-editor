@@ -27,7 +27,7 @@ Result<BuildReport> Compiler::compileSourceCode(
     }
 
     // 3. Resolve all Quake 3 include directories (including sibling qcommon, cgame, game, ui, etc.)
-    config.includePaths = FileUtils::resolveQuake3IncludeDirs(config.includePaths);
+    config.includePaths = FileUtils::resolveQuake3IncludeDirs(config.includePaths, config.sdkDir);
 
     // 4. Ensure runtime headers and syscall stubs exist in scratchDir
     auto bgLibH = scratchDir / "bg_lib.h";

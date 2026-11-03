@@ -205,7 +205,8 @@ std::filesystem::path FileUtils::getExecutableDirectory() {
 }
 
 std::vector<std::filesystem::path> FileUtils::resolveQuake3IncludeDirs(
-    const std::vector<std::filesystem::path>& userIncludes) {
+    const std::vector<std::filesystem::path>& userIncludes,
+    const std::filesystem::path& sdkDir) {
 
     std::vector<std::filesystem::path> results;
     auto addUnique = [&results](const std::filesystem::path& p) {
@@ -220,26 +221,32 @@ std::vector<std::filesystem::path> FileUtils::resolveQuake3IncludeDirs(
         }
     };
 
-    // 1. Process all user-specified include paths and expand sibling SDK modules
+    auto expandSdkModules = [&addUnique](const std::filesystem::path& root) {
+        if (root.empty()) return;
+        addUnique(root);
+        for (const auto& sub : {"qcommon", "game", "cgame", "ui", "q3_ui", "client", "server"}) {
+            addUnique(root / sub);
+            addUnique(root / "code" / sub);
+            addUnique(root / "build" / "quake3" / "code" / sub);
+        }
+    };
+
+    // 1. Process explicit SDK directory first if provided
+    if (!sdkDir.empty()) {
+        expandSdkModules(sdkDir);
+        expandSdkModules(sdkDir.parent_path());
+        expandSdkModules(sdkDir.parent_path().parent_path());
+    }
+
+    // 2. Process all user-specified include paths and expand sibling SDK modules
     for (auto inc : userIncludes) {
         std::error_code ec;
         if (std::filesystem::is_regular_file(inc, ec)) {
             inc = inc.parent_path();
         }
-        addUnique(inc);
-
-        // Check if inc has sibling Quake 3 directories (e.g. inc is code/game -> check code/qcommon, code/cgame, etc.)
-        auto parent = inc.parent_path();
-        for (const auto& sub : {"qcommon", "game", "cgame", "ui", "q3_ui", "client", "server"}) {
-            addUnique(parent / sub);
-        }
-
-        // Check if inc itself contains code/ (e.g. repo root)
-        for (const auto& sub : {"qcommon", "game", "cgame", "ui", "q3_ui"}) {
-            addUnique(inc / "code" / sub);
-            addUnique(parent / "code" / sub);
-            addUnique(parent.parent_path() / "code" / sub);
-        }
+        expandSdkModules(inc);
+        expandSdkModules(inc.parent_path());
+        expandSdkModules(inc.parent_path().parent_path());
     }
 
     // 2. Discover Quake 3 headers relative to executable / application bundle
