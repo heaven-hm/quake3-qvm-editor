@@ -397,8 +397,8 @@ void compileEditorCode() {
     std::filesystem::path outDir(outDirStr);
     std::filesystem::create_directories(outDir);
 
-    // Save temporary C file
-    auto scratchDir = outDir / "editor_scratch";
+    // Save temporary C file outside user's output directory
+    auto scratchDir = std::filesystem::temp_directory_path() / "quake3_qvm_editor_scratch";
     std::filesystem::create_directories(scratchDir);
     auto cFilePath = scratchDir / "g_main.c";
 
@@ -423,6 +423,7 @@ void compileEditorCode() {
             if (!item.empty()) includeDirs.push_back(item);
         }
     }
+    includeDirs = qvm::FileUtils::resolveQuake3IncludeDirs(includeDirs);
 
     // Configure compiler
     qvm::CompilerConfig config;

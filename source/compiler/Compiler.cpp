@@ -9,12 +9,10 @@ Result<BuildReport> Compiler::compileSourceCode(
     BuildProgressCallback progressCallback,
     BuildLogCallback logCallback) {
 
-    // 1. Determine temporary scratch directory
-    std::filesystem::path scratchDir = config.outputDir.empty()
-        ? std::filesystem::current_path() / "build" / "editor_scratch"
-        : config.outputDir / "editor_scratch";
-
-    std::filesystem::create_directories(scratchDir);
+    // 1. Determine temporary scratch directory OUTSIDE user's output directory
+    std::filesystem::path scratchDir = std::filesystem::temp_directory_path() / "quake3_qvm_editor_scratch";
+    std::error_code ec;
+    std::filesystem::create_directories(scratchDir, ec);
 
     // 2. Ensure trailing newline to prevent cpp error "No newline at end of file"
     std::string cleanCode(cCode);
@@ -22,59 +20,57 @@ Result<BuildReport> Compiler::compileSourceCode(
         cleanCode.push_back('\n');
     }
 
-    // Write g_main.c
+    // Write g_main.c in system temp scratch directory
     auto srcFile = scratchDir / "g_main.c";
     if (auto err = FileUtils::writeFileText(srcFile, cleanCode); err.isError()) {
         return err;
     }
 
-    // 3. Ensure runtime headers and syscall stubs exist in scratchDir
+    // 3. Resolve all Quake 3 include directories (including sibling qcommon, cgame, game, ui, etc.)
+    config.includePaths = FileUtils::resolveQuake3IncludeDirs(config.includePaths);
+
+    // 4. Ensure runtime headers and syscall stubs exist in scratchDir
     auto bgLibH = scratchDir / "bg_lib.h";
-    if (std::filesystem::exists("third_party/quake3/code/game/bg_lib.h")) {
-        std::filesystem::copy_file("third_party/quake3/code/game/bg_lib.h", bgLibH, std::filesystem::copy_options::overwrite_existing);
-    } else if (std::filesystem::exists("examples/sample_game/bg_lib.h")) {
-        std::filesystem::copy_file("examples/sample_game/bg_lib.h", bgLibH, std::filesystem::copy_options::overwrite_existing);
+    bool bgLibFound = false;
+    for (const auto& inc : config.includePaths) {
+        if (std::filesystem::exists(inc / "bg_lib.h", ec)) {
+            std::filesystem::copy_file(inc / "bg_lib.h", bgLibH, std::filesystem::copy_options::overwrite_existing, ec);
+            bgLibFound = true;
+            break;
+        }
+    }
+    if (!bgLibFound && std::filesystem::exists("third_party/quake3/code/game/bg_lib.h", ec)) {
+        std::filesystem::copy_file("third_party/quake3/code/game/bg_lib.h", bgLibH, std::filesystem::copy_options::overwrite_existing, ec);
     }
 
     auto bgLibC = scratchDir / "bg_lib.c";
-    if (std::filesystem::exists("third_party/quake3/code/game/bg_lib.c")) {
-        std::filesystem::copy_file("third_party/quake3/code/game/bg_lib.c", bgLibC, std::filesystem::copy_options::overwrite_existing);
-    } else if (std::filesystem::exists("examples/sample_game/bg_lib.c")) {
-        std::filesystem::copy_file("examples/sample_game/bg_lib.c", bgLibC, std::filesystem::copy_options::overwrite_existing);
+    bool bgLibCFound = false;
+    for (const auto& inc : config.includePaths) {
+        if (std::filesystem::exists(inc / "bg_lib.c", ec)) {
+            std::filesystem::copy_file(inc / "bg_lib.c", bgLibC, std::filesystem::copy_options::overwrite_existing, ec);
+            bgLibCFound = true;
+            break;
+        }
+    }
+    if (!bgLibCFound && std::filesystem::exists("third_party/quake3/code/game/bg_lib.c", ec)) {
+        std::filesystem::copy_file("third_party/quake3/code/game/bg_lib.c", bgLibC, std::filesystem::copy_options::overwrite_existing, ec);
     }
 
     auto syscallsAsm = scratchDir / "g_syscalls.asm";
-    if (std::filesystem::exists("third_party/quake3/code/game/g_syscalls.asm")) {
-        std::filesystem::copy_file("third_party/quake3/code/game/g_syscalls.asm", syscallsAsm, std::filesystem::copy_options::overwrite_existing);
-    } else if (std::filesystem::exists("examples/sample_game/g_syscalls.asm")) {
-        std::filesystem::copy_file("examples/sample_game/g_syscalls.asm", syscallsAsm, std::filesystem::copy_options::overwrite_existing);
-    } else {
+    bool syscallsFound = false;
+    for (const auto& inc : config.includePaths) {
+        if (std::filesystem::exists(inc / "g_syscalls.asm", ec)) {
+            std::filesystem::copy_file(inc / "g_syscalls.asm", syscallsAsm, std::filesystem::copy_options::overwrite_existing, ec);
+            syscallsFound = true;
+            break;
+        }
+    }
+    if (!syscallsFound && std::filesystem::exists("third_party/quake3/code/game/g_syscalls.asm", ec)) {
+        std::filesystem::copy_file("third_party/quake3/code/game/g_syscalls.asm", syscallsAsm, std::filesystem::copy_options::overwrite_existing, ec);
+    } else if (!syscallsFound) {
         std::string stubs = "code\n\nequ trap_Printf -1\nequ trap_Print -1\nequ trap_Error -2\nequ memset -3\nequ memcpy -4\n";
         FileUtils::writeFileText(syscallsAsm, stubs);
     }
-
-    // 4. Resolve includes and sanitize paths
-    std::vector<std::filesystem::path> sanitizedIncludes;
-    for (auto inc : config.includePaths) {
-        if (std::filesystem::is_regular_file(inc)) {
-            inc = inc.parent_path();
-        }
-        if (std::filesystem::exists(inc)) {
-            sanitizedIncludes.push_back(inc);
-        }
-    }
-
-    // Add bundled official Quake 3 headers if available
-    for (const auto& relDir : {"third_party/quake3/code/game",
-                               "third_party/quake3/code/cgame",
-                               "third_party/quake3/code/ui",
-                               "third_party/quake3/code/q3_ui",
-                               "/Users/haseeb-mir/Documents/Code/quake-3-macos/build/quake3/code/game"}) {
-        if (std::filesystem::exists(relDir)) {
-            sanitizedIncludes.push_back(relDir);
-        }
-    }
-    config.includePaths = sanitizedIncludes;
 
     // Ensure -DQ3_VM define
     bool hasQ3Vm = false;
@@ -92,7 +88,7 @@ Result<BuildReport> Compiler::compileSourceCode(
     config.module = ModuleType::Custom;
     config.sourceDir = scratchDir;
     if (config.outputDir.empty()) {
-        config.outputDir = scratchDir / "bin";
+        config.outputDir = std::filesystem::current_path() / "build";
     }
     if (config.outputName.empty()) {
         config.outputName = "custom.qvm";

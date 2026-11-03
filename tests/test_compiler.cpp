@@ -183,3 +183,38 @@ void updateTimer(int levelTime)
     EXPECT_GT(parseRes.value().instructions.size(), 0u);
 }
 
+TEST(CompilerTest, CompileUserSnippetWithQSharedAndCgPublicAndNoOutputScratch) {
+    const char* cSource = R"(
+#include "q_shared.h"
+#include "cg_public.h"
+
+int vmMain(int command, int arg0, int arg1, int arg2, int arg3,
+           int arg4, int arg5, int arg6, int arg7,
+           int arg8, int arg9, int arg10, int arg11) {
+    return 0;
+}
+)";
+
+    std::filesystem::path testOutDir = "build/test_clean_output";
+    std::filesystem::remove_all(testOutDir);
+
+    qvm::CompilerConfig config;
+    config.outputDir = testOutDir;
+    config.outputName = "cgame_test.qvm";
+
+    auto res = qvm::Compiler::compileSourceCode(cSource, config);
+    ASSERT_TRUE(res.hasValue()) << "Compilation with q_shared.h and cg_public.h failed: "
+                                << (res.hasError() ? res.error().message() : "");
+
+    const auto& report = res.value();
+    EXPECT_TRUE(std::filesystem::exists(report.outputQvmPath));
+    EXPECT_GT(report.qvmFileSize, 0u);
+
+    // Verify editor_scratch was NEVER created in output directory
+    EXPECT_FALSE(std::filesystem::exists(testOutDir / "editor_scratch"));
+
+    auto parseRes = qvm::QvmParser::parseFile(report.outputQvmPath);
+    ASSERT_TRUE(parseRes.hasValue());
+    EXPECT_TRUE(parseRes.value().header.isValidMagic());
+}
+

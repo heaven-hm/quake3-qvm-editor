@@ -17,9 +17,12 @@ public:
     static Error writeFileText(const std::filesystem::path& path, std::string_view text);
     static Error ensureDirectory(const std::filesystem::path& path);
     static std::filesystem::path normalizePath(const std::filesystem::path& path);
+    static std::filesystem::path getExecutableDirectory();
     static std::filesystem::path findExecutable(
         std::string_view name,
         const std::vector<std::filesystem::path>& customSearchPaths = {});
+    static std::vector<std::filesystem::path> resolveQuake3IncludeDirs(
+        const std::vector<std::filesystem::path>& userIncludes = {});
 };
 
 } // namespace qvm

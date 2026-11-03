@@ -1,4 +1,5 @@
 #include "qvm/common/FileUtils.hpp"
+#include <algorithm>
 #include <fstream>
 #include <cstdlib>
 
@@ -178,6 +179,101 @@ std::filesystem::path FileUtils::findExecutable(
     }
 
     return {};
+}
+
+std::filesystem::path FileUtils::getExecutableDirectory() {
+#if defined(_WIN32)
+    wchar_t exeBuffer[MAX_PATH];
+    if (GetModuleFileNameW(nullptr, exeBuffer, MAX_PATH) > 0) {
+        return std::filesystem::path(exeBuffer).parent_path();
+    }
+#elif defined(__APPLE__)
+    char exeBuffer[1024];
+    uint32_t size = sizeof(exeBuffer);
+    if (::_NSGetExecutablePath(exeBuffer, &size) == 0) {
+        return std::filesystem::path(exeBuffer).parent_path();
+    }
+#else
+    char exeBuffer[1024];
+    ssize_t len = ::readlink("/proc/self/exe", exeBuffer, sizeof(exeBuffer) - 1);
+    if (len > 0) {
+        exeBuffer[len] = '\0';
+        return std::filesystem::path(exeBuffer).parent_path();
+    }
+#endif
+    return std::filesystem::current_path();
+}
+
+std::vector<std::filesystem::path> FileUtils::resolveQuake3IncludeDirs(
+    const std::vector<std::filesystem::path>& userIncludes) {
+
+    std::vector<std::filesystem::path> results;
+    auto addUnique = [&results](const std::filesystem::path& p) {
+        if (p.empty()) return;
+        std::error_code ec;
+        if (std::filesystem::exists(p, ec) && std::filesystem::is_directory(p, ec)) {
+            auto canonical = std::filesystem::weakly_canonical(p, ec);
+            if (std::find(results.begin(), results.end(), canonical) == results.end() &&
+                std::find(results.begin(), results.end(), p) == results.end()) {
+                results.push_back(p);
+            }
+        }
+    };
+
+    // 1. Process all user-specified include paths and expand sibling SDK modules
+    for (auto inc : userIncludes) {
+        std::error_code ec;
+        if (std::filesystem::is_regular_file(inc, ec)) {
+            inc = inc.parent_path();
+        }
+        addUnique(inc);
+
+        // Check if inc has sibling Quake 3 directories (e.g. inc is code/game -> check code/qcommon, code/cgame, etc.)
+        auto parent = inc.parent_path();
+        for (const auto& sub : {"qcommon", "game", "cgame", "ui", "q3_ui", "client", "server"}) {
+            addUnique(parent / sub);
+        }
+
+        // Check if inc itself contains code/ (e.g. repo root)
+        for (const auto& sub : {"qcommon", "game", "cgame", "ui", "q3_ui"}) {
+            addUnique(inc / "code" / sub);
+            addUnique(parent / "code" / sub);
+            addUnique(parent.parent_path() / "code" / sub);
+        }
+    }
+
+    // 2. Discover Quake 3 headers relative to executable / application bundle
+    auto exeDir = getExecutableDirectory();
+    std::vector<std::filesystem::path> baseDirs = {
+        exeDir,
+        exeDir / "tools",
+        exeDir.parent_path() / "Resources",
+        exeDir.parent_path().parent_path().parent_path(),
+        std::filesystem::current_path()
+    };
+
+    for (const auto& base : baseDirs) {
+        for (const auto& mod : {"game", "cgame", "qcommon", "ui", "q3_ui"}) {
+            addUnique(base / "code" / mod);
+            addUnique(base / "third_party" / "quake3" / "code" / mod);
+        }
+    }
+
+    // 3. Fallback well-known local paths
+    for (const auto& wellKnown : {
+        "/Users/haseeb-mir/Documents/Code/quake-3-macos/build/quake3/code/qcommon",
+        "/Users/haseeb-mir/Documents/Code/quake-3-macos/build/quake3/code/cgame",
+        "/Users/haseeb-mir/Documents/Code/quake-3-macos/build/quake3/code/game",
+        "/Users/haseeb-mir/Documents/Code/quake-3-macos/build/quake3/code/ui",
+        "/Users/haseeb-mir/Documents/Code/quake-3-macos/code/qcommon",
+        "/Users/haseeb-mir/Documents/Code/quake-3-macos/code/cgame",
+        "/Users/haseeb-mir/Documents/Code/quake-3-macos/code/game",
+        "/Users/haseeb-mir/Documents/Code/quake-3-macos/code/ui"
+    }) {
+        addUnique(wellKnown);
+    }
+
+    return results;
 }
 
 } // namespace qvm

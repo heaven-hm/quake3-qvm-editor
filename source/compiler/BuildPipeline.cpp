@@ -35,7 +35,9 @@ Result<BuildReport> BuildPipeline::execute(
         return err;
     }
 
-    std::filesystem::path intermediateDir = outDir / "intermediate";
+    bool isScratchBuild = (config.sourceDir.string().find("scratch") != std::string::npos);
+    std::filesystem::path intermediateDir = isScratchBuild ?
+        (config.sourceDir / "intermediate") : (outDir / "intermediate");
     if (auto err = FileUtils::ensureDirectory(intermediateDir); err.isError()) {
         return err;
     }
@@ -63,6 +65,7 @@ Result<BuildReport> BuildPipeline::execute(
         }
     }
     includeDirs.push_back(config.sourceDir);
+    includeDirs = FileUtils::resolveQuake3IncludeDirs(includeDirs);
 
     // Resolve preprocessor defines
     std::vector<std::string> defines = moduleFiles.defaultDefines;
@@ -222,7 +225,7 @@ Result<BuildReport> BuildPipeline::execute(
     report.success = true;
 
     // Optional cleanup
-    if (config.cleanIntermediate) {
+    if (config.cleanIntermediate || isScratchBuild) {
         std::error_code ec;
         std::filesystem::remove_all(intermediateDir, ec);
     }

@@ -302,6 +302,21 @@ if(QVM_BUILD_GUI)
             "${QVM_TOOLS_OUTPUT_DIR}"
             "$<TARGET_FILE_DIR:q3vm_gui>/tools"
     )
+
+    # Ensure SDK headers are bundled with GUI executable
+    if(APPLE)
+        add_custom_command(TARGET q3vm_gui POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_directory
+                "${CMAKE_CURRENT_SOURCE_DIR}/third_party/quake3/code"
+                "$<TARGET_FILE_DIR:q3vm_gui>/../Resources/code"
+        )
+    else()
+        add_custom_command(TARGET q3vm_gui POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_directory
+                "${CMAKE_CURRENT_SOURCE_DIR}/third_party/quake3/code"
+                "$<TARGET_FILE_DIR:q3vm_gui>/code"
+        )
+    endif()
 endif()
 
 # ==============================================================================
