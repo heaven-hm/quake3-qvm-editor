@@ -879,12 +879,14 @@ int runGui(HINSTANCE hInstance, int nCmdShow) {
     wcex.cbClsExtra = 0;
     wcex.cbWndExtra = 0;
     wcex.hInstance = hInstance;
-    wcex.hIcon = LoadIcon(nullptr, IDI_APPLICATION);
-    wcex.hCursor = LoadCursor(nullptr, IDC_ARROW);
+    wcex.hIcon = LoadIconW(hInstance, MAKEINTRESOURCEW(1));
+    if (!wcex.hIcon) wcex.hIcon = LoadIconW(nullptr, (LPCWSTR)IDI_APPLICATION);
+    wcex.hCursor = LoadCursorW(nullptr, (LPCWSTR)IDC_ARROW);
     wcex.hbrBackground = (HBRUSH)(COLOR_BTNFACE + 1);
     wcex.lpszMenuName = nullptr;
     wcex.lpszClassName = L"Quake3QvmEditorWinClass";
-    wcex.hIconSm = LoadIcon(nullptr, IDI_APPLICATION);
+    wcex.hIconSm = LoadIconW(hInstance, MAKEINTRESOURCEW(1));
+    if (!wcex.hIconSm) wcex.hIconSm = LoadIconW(nullptr, (LPCWSTR)IDI_APPLICATION);
     RegisterClassExW(&wcex);
 
     int screenW = GetSystemMetrics(SM_CXSCREEN);

@@ -1,6 +1,8 @@
 # Build output
 build/
 build-win/
+build-linux/
+release-dist/
 bin/
 lib/
 *.qvm

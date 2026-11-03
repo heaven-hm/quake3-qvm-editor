@@ -1,6 +1,8 @@
-# Quake 3 QVM Editor
-
 <div align="center">
+
+<img src="docs/images/logo.png" alt="Quake 3 QVM Editor Logo" width="180" style="border-radius: 28px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);" />
+
+# Quake 3 QVM Editor
 
 [![License: GPL v2](https://img.shields.io/badge/License-GPL_v2-blue.svg)](LICENSE)
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-00599C?logo=c%2B%2B)](https://en.cppreference.com/w/cpp/20)
@@ -148,6 +150,18 @@ quake3-qvm-editor/
 ├── docs/screenshots/           # High-resolution application preview images
 └── tests/                      # GoogleTest automated unit test suite
 ```
+
+---
+
+## Downloads & Releases
+
+Pre-compiled standalone releases are available for all major platforms on the [**Releases Page**](https://github.com/heaven-hm/quake3-qvm-editor/releases):
+
+| Platform | Package | Architecture | Description |
+|---|---|---|---|
+| **macOS** | [`quake3-qvm-editor-0.1.1-macOS.dmg`](https://github.com/heaven-hm/quake3-qvm-editor/releases/latest) | Apple Silicon / Intel | Native Drag-and-Drop installer bundle with all tools and SDK headers |
+| **Windows** | [`quake3-qvm-editor-0.1.1-windows-x64.zip`](https://github.com/heaven-hm/quake3-qvm-editor/releases/latest) | x86_64 | Standalone portable executable with toolchain (`q3lcc`, `q3asm`) and headers |
+| **Linux** | [`quake3-qvm-editor-0.1.1-linux-x86_64.tar.gz`](https://github.com/heaven-hm/quake3-qvm-editor/releases/latest) | x86_64 | 100% static musl binary package with zero runtime dependencies |
 
 ---
 

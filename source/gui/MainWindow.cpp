@@ -12,7 +12,7 @@
 namespace qvm::gui {
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
-    setWindowIcon(QIcon(":/icons/brand.svg"));
+    setWindowIcon(QIcon(":/app_icon.png"));
     setupUi();
     setupMenus();
     applyTheme(EditorTheme::Dark);

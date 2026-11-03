@@ -248,14 +248,18 @@ if(QVM_BUILD_GUI)
         )
 
         if(WIN32)
-            add_executable(q3vm_gui WIN32 ${GUI_SOURCES})
+            set(WIN32_RC "${CMAKE_CURRENT_SOURCE_DIR}/resources/windows/resource.rc")
+            add_executable(q3vm_gui WIN32 ${GUI_SOURCES} ${WIN32_RC})
             set_target_properties(q3vm_gui PROPERTIES OUTPUT_NAME "quake3-qvm-editor")
         elseif(APPLE)
-            add_executable(q3vm_gui MACOSX_BUNDLE ${GUI_SOURCES})
+            set(MACOS_APP_ICON "${CMAKE_CURRENT_SOURCE_DIR}/resources/app_icon.icns")
+            set_source_files_properties(${MACOS_APP_ICON} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
+            add_executable(q3vm_gui MACOSX_BUNDLE ${GUI_SOURCES} ${MACOS_APP_ICON})
             set_target_properties(q3vm_gui PROPERTIES
                 OUTPUT_NAME "quake3-qvm-editor"
                 MACOSX_BUNDLE_BUNDLE_NAME "quake3-qvm-editor"
                 MACOSX_BUNDLE_GUI_IDENTIFIER "com.quake3.qvmeditor"
+                MACOSX_BUNDLE_ICON_FILE "app_icon.icns"
                 MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
                 MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
             )
@@ -279,7 +283,8 @@ if(QVM_BUILD_GUI)
         )
     else()
         # Native Win32 GUI without Qt6 dependency
-        add_executable(q3vm_gui WIN32 source/win32_gui/main_win32.cpp)
+        set(WIN32_RC "${CMAKE_CURRENT_SOURCE_DIR}/resources/windows/resource.rc")
+        add_executable(q3vm_gui WIN32 source/win32_gui/main_win32.cpp ${WIN32_RC})
         set_target_properties(q3vm_gui PROPERTIES OUTPUT_NAME "quake3-qvm-editor")
 
         target_link_libraries(q3vm_gui PRIVATE
