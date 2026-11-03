@@ -4,6 +4,72 @@
 
 namespace qvm {
 
+namespace {
+
+// Locate a Quake III source root (the directory that contains the module
+// sub-folders such as cgame/ + game/ + qcommon/) so an in-memory editor
+// source can be linked against the full module implementation.
+std::filesystem::path findModuleSourceRoot(ModuleType module, const CompilerConfig& config) {
+    if (module == ModuleType::Custom) {
+        return {};
+    }
+
+    const auto moduleFiles = ModuleConfig::getModuleFileList(module);
+
+    std::vector<std::filesystem::path> candidates;
+    auto addWithParents = [&candidates](std::filesystem::path p, int levels) {
+        for (int i = 0; i < levels && !p.empty(); ++i) {
+            candidates.push_back(p);
+            auto parent = p.parent_path();
+            if (parent == p) {
+                break;
+            }
+            p = parent;
+        }
+    };
+
+    addWithParents(config.sdkDir, 3);
+    for (const auto& inc : config.includePaths) {
+        addWithParents(inc, 3);
+    }
+    addWithParents(std::filesystem::current_path(), 2);
+    candidates.push_back("third_party/quake3/code");
+
+    std::error_code ec;
+    auto exeDir = FileUtils::getExecutableDirectory();
+    for (auto p = exeDir; !p.empty(); p = p.parent_path()) {
+        candidates.push_back(p / "third_party" / "quake3" / "code");
+        candidates.push_back(p / "code");
+        if (p == p.parent_path()) {
+            break;
+        }
+    }
+
+    for (auto cand : candidates) {
+        if (cand.empty() || !std::filesystem::is_directory(cand, ec)) {
+            continue;
+        }
+        auto resolved = ModuleConfig::resolveSourceFiles(cand, moduleFiles);
+        if (resolved.empty() || !std::filesystem::exists(resolved.front(), ec)) {
+            continue;
+        }
+        // The full module needs its shared C runtime (bg_lib.c) present.
+        if (std::filesystem::exists(cand / "game" / "bg_lib.c", ec) ||
+            std::filesystem::exists(cand / "qcommon" / "bg_lib.c", ec)) {
+            return cand;
+        }
+        // The candidate may be the module folder itself (e.g. .../code/cgame).
+        auto parent = cand.parent_path();
+        if (!parent.empty() && std::filesystem::exists(parent / "game" / "bg_lib.c", ec)) {
+            return parent;
+        }
+    }
+
+    return {};
+}
+
+} // anonymous namespace
+
 Result<BuildReport> Compiler::compileSourceCode(
     std::string_view cCode,
     CompilerConfig config,
@@ -45,6 +111,24 @@ Result<BuildReport> Compiler::compileSourceCode(
 
     // 4. Resolve all Quake 3 include directories (including sibling qcommon, cgame, game, ui, etc.)
     config.includePaths = FileUtils::resolveQuake3IncludeDirs(config.includePaths, config.sdkDir);
+
+    // 4a. Module-aware editor build: when a module is selected and its source
+    //     tree is available (via the SDK/includes or the bundled Quake III code),
+    //     link the full module and use the editor buffer as the custom vmMain
+    //     entry, exactly like the CLI single-file build.
+    if (config.linkFullModule && config.module != ModuleType::Custom) {
+        auto moduleRoot = findModuleSourceRoot(config.module, config);
+        if (!moduleRoot.empty()) {
+            config.entryOverrideFile = srcFile;
+            config.sourceDir = moduleRoot;
+            config.selectedFiles.clear();
+            config.cleanIntermediate = true;
+            if (config.outputDir.empty()) {
+                config.outputDir = std::filesystem::current_path() / "build";
+            }
+            return BuildPipeline::execute(config, progressCallback, logCallback);
+        }
+    }
 
     // Clean up any stale files or old intermediates in scratchDir
     std::filesystem::remove(scratchDir / "g_main.c", ec);

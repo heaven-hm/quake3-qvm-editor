@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(quake3_qvm_editor
-    VERSION 0.2.0
+    VERSION 0.2.1
     DESCRIPTION "Quake III Arena QVM Compiler & Decompiler Editor"
     LANGUAGES CXX C
 )

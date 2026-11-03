@@ -419,6 +419,7 @@ void CompilerPage::onOpenCFile() {
         if (file.open(QFile::ReadOnly | QFile::Text)) {
             cCodeEditor_->setPlainText(QString::fromUtf8(file.readAll()));
             editorOutputNameEdit_->setText(QFileInfo(path).baseName() + ".qvm");
+            lastSourceDir_ = QFileInfo(path).absolutePath();
             updateCliCommandPreview();
         }
     }
@@ -564,6 +565,7 @@ void CompilerPage::onStartCompileEditor() {
 
     CompilerConfig config;
     config.module = stringToModuleType(editorModuleCombo_->currentData().toString().toStdString());
+    config.linkFullModule = (config.module != ModuleType::Custom);
     config.outputDir = editorOutputDirEdit_->text().toStdString();
     config.outputName = editorOutputNameEdit_->text().toStdString();
     if (editorSdkDirEdit_ && !editorSdkDirEdit_->text().trimmed().isEmpty()) {
@@ -571,6 +573,12 @@ void CompilerPage::onStartCompileEditor() {
     }
     config.debugSymbols = editorDebugCheck_->isChecked();
     config.verbose = editorVerboseCheck_->isChecked();
+
+    // Prefer the directory of the last opened C file so a module source (e.g.
+    // code/cgame.c) resolves its module tree and matching headers first.
+    if (!lastSourceDir_.isEmpty()) {
+        config.includePaths.push_back(lastSourceDir_.toStdString());
+    }
 
     // Parse defines
     QString defs = editorDefinesEdit_->text();

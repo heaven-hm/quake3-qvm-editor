@@ -343,6 +343,35 @@ TEST(CompilerTest, CustomEntryLinksFullModuleAndEmitsMappedOutput) {
     EXPECT_NE(report.q3asmCommand.find("cg_main.asm"), std::string::npos);
 }
 
+TEST(CompilerTest, CompileSourceCodeModuleAwareLinksFullModule) {
+    // The GUI editor path (in-memory source) must behave like the CLI: selecting a
+    // module links the full module and uses the buffer as the vmMain entry.
+    const char* cSource = R"(
+#include "cg_local.h"
+void CG_Init(int serverMessageNum, int serverCommandSequence, int clientNum);
+int vmMain(int command, int arg0, int arg1, int arg2, int arg3, int arg4,
+           int arg5, int arg6, int arg7, int arg8, int arg9, int arg10, int arg11)
+{
+    if (command == 0) { CG_Init(arg0, arg1, arg2); }
+    return 0;
+}
+)";
+
+    qvm::CompilerConfig config;
+    config.module = qvm::ModuleType::CGame;
+    config.linkFullModule = true;
+    config.sdkDir = "third_party/quake3/code";
+    config.outputDir = "build/test_compiler_out";
+
+    auto res = qvm::Compiler::compileSourceCode(cSource, config);
+    ASSERT_TRUE(res.hasValue()) << (res.hasError() ? res.error().message() : "");
+
+    const auto& report = res.value();
+    EXPECT_TRUE(std::filesystem::exists(report.outputQvmPath));
+    EXPECT_EQ(report.outputQvmPath.filename().string(), "cgame.qvm");
+    EXPECT_NE(report.q3asmCommand.find("cg_syscalls.asm"), std::string::npos);
+}
+
 TEST(CompilerTest, SingleFileModsEnforcePerModuleSyscallMapping) {
     struct Case {
         qvm::ModuleType module;
