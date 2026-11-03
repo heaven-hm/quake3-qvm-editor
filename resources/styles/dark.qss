@@ -1,0 +1,5 @@
+/* Quake 3 QVM Studio - Dark Stylesheet */
+QMainWindow {
+    background-color: #0f172a;
+    color: #f8fafc;
+}
