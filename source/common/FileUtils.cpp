@@ -249,12 +249,20 @@ std::vector<std::filesystem::path> FileUtils::resolveQuake3IncludeDirs(
         expandSdkModules(inc.parent_path().parent_path());
     }
 
-    // 2. Discover Quake 3 headers relative to executable / application bundle
+    // 3. Discover Quake 3 headers relative to the executable / application bundle.
+    //    Layouts covered:
+    //      macOS bundle   <App>.app/Contents/Resources/code
+    //      Windows / Linux bundle  <exe dir>/code
+    //      dev build      <repo>/third_party/quake3/code
     auto exeDir = getExecutableDirectory();
     std::vector<std::filesystem::path> baseDirs = {
         exeDir,
         exeDir / "tools",
+        exeDir.parent_path(),
         exeDir.parent_path() / "Resources",
+        exeDir.parent_path() / "share" / "quake3-qvm-editor",
+        exeDir.parent_path().parent_path(),
+        exeDir.parent_path().parent_path() / "Resources",
         exeDir.parent_path().parent_path().parent_path(),
         std::filesystem::current_path()
     };
@@ -264,20 +272,6 @@ std::vector<std::filesystem::path> FileUtils::resolveQuake3IncludeDirs(
             addUnique(base / "code" / mod);
             addUnique(base / "third_party" / "quake3" / "code" / mod);
         }
-    }
-
-    // 3. Fallback well-known local paths
-    for (const auto& wellKnown : {
-        "/Users/haseeb-mir/Documents/Code/quake-3-macos/build/quake3/code/qcommon",
-        "/Users/haseeb-mir/Documents/Code/quake-3-macos/build/quake3/code/cgame",
-        "/Users/haseeb-mir/Documents/Code/quake-3-macos/build/quake3/code/game",
-        "/Users/haseeb-mir/Documents/Code/quake-3-macos/build/quake3/code/ui",
-        "/Users/haseeb-mir/Documents/Code/quake-3-macos/code/qcommon",
-        "/Users/haseeb-mir/Documents/Code/quake-3-macos/code/cgame",
-        "/Users/haseeb-mir/Documents/Code/quake-3-macos/code/game",
-        "/Users/haseeb-mir/Documents/Code/quake-3-macos/code/ui"
-    }) {
-        addUnique(wellKnown);
     }
 
     return results;

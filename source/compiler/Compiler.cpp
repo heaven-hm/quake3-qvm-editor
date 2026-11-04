@@ -17,9 +17,14 @@ std::filesystem::path findModuleSourceRoot(ModuleType module, const CompilerConf
     const auto moduleFiles = ModuleConfig::getModuleFileList(module);
 
     std::vector<std::filesystem::path> candidates;
+    // Each base directory may hold the shared Quake 3 tree directly, in a `code`
+    // sub-folder, next to a macOS bundle's Resources, or under third_party/.
     auto addWithParents = [&candidates](std::filesystem::path p, int levels) {
         for (int i = 0; i < levels && !p.empty(); ++i) {
             candidates.push_back(p);
+            candidates.push_back(p / "code");
+            candidates.push_back(p / "Resources" / "code");
+            candidates.push_back(p / "third_party" / "quake3" / "code");
             auto parent = p.parent_path();
             if (parent == p) {
                 break;
@@ -38,8 +43,10 @@ std::filesystem::path findModuleSourceRoot(ModuleType module, const CompilerConf
     std::error_code ec;
     auto exeDir = FileUtils::getExecutableDirectory();
     for (auto p = exeDir; !p.empty(); p = p.parent_path()) {
-        candidates.push_back(p / "third_party" / "quake3" / "code");
+        candidates.push_back(p);
         candidates.push_back(p / "code");
+        candidates.push_back(p / "Resources" / "code");
+        candidates.push_back(p / "third_party" / "quake3" / "code");
         if (p == p.parent_path()) {
             break;
         }
@@ -128,6 +135,16 @@ Result<BuildReport> Compiler::compileSourceCode(
             }
             return BuildPipeline::execute(config, progressCallback, logCallback);
         }
+
+        // A module build needs the rest of the module (cg_main.c, bg_*, q_*,
+        // bg_lib.c) to link against. Without the tree, compiling the editor
+        // buffer alone would only surface cryptic Q3ASM undefined symbols.
+        return Error(ErrorCode::InvalidProjectDirectory,
+                     "Could not locate the Quake III " +
+                     std::string(moduleTypeToString(config.module)) +
+                     " source tree needed to link this module. Select the Quake 3 "
+                     "SDK / source directory (the folder containing game, cgame, "
+                     "qcommon, ui) in the build options and compile again.");
     }
 
     // Clean up any stale files or old intermediates in scratchDir

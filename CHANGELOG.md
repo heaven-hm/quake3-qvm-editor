@@ -2,6 +2,18 @@
 
 All notable changes to **Quake 3 QVM Editor** are documented in this file.
 
+## [0.2.3] - 2026-11-04
+
+### Bug Fixes
+- **Bundled SDK `intptr_t` for VM Builds**: `third_party/quake3/code/game/q_shared.h` (the header cgame, qagame and ui actually include) was missing the `typedef int intptr_t;` that `qcommon/q_shared.h` defines under `#ifdef Q3_VM`. Any editor or module build that resolved headers through the bundled SDK failed on modern entry points such as `intptr_t vmMain(int command, int arg0, ...)` with the cryptic `syntax error; found '...' expecting ';'`. The bundled header now matches the engine header.
+- **Complete SDK Tree in Release Bundles**: Packaging copied only `third_party/quake3/code` into the app, but ten cgame/game sources `#include "../../ui/menudef.h"`, which lives in the sibling `ui/` directory upstream. Module builds run from the packaged app (macOS `Contents/Resources`, Windows/Linux `<exe>`) failed with `Could not find include file "../../ui/menudef.h"`. `ui/` is now bundled next to `code/` on every platform.
+- **Cross-Platform SDK Discovery**: Removed the hardcoded `/Users/haseeb-mir/...` include fallbacks that only worked on the developer machine. `resolveQuake3IncludeDirs` and module-root discovery now resolve the SDK from explicit paths, the macOS bundle (`Contents/Resources/code`), the Windows/Linux bundle (`<exe>/code`), Linux `share/quake3-qvm-editor`, and the development tree, so the GUI compiles the same sources as `q3vm` on every OS.
+- **Actionable Missing-SDK Error**: A module build with no resolvable Quake III source tree now reports that it needs the SDK/source directory instead of failing later with bare Q3ASM undefined-symbol noise.
+
+### Verification
+- The Qt editor compile path and the CLI both build the same `cgame.c` module: CLI against the user's ioq3 tree (`cgame.qvm`, 341008 bytes) and the GUI against only the SDK bundled inside the packaged `.app` (`cgame.qvm`, 328936 bytes), run from an unrelated working directory.
+- `q3vm_tests`: 30/30 passing.
+
 ## [0.2.2] - 2026-11-03
 
 ### Maintenance

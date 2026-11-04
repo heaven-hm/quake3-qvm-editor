@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(quake3_qvm_editor
-    VERSION 0.2.2
+    VERSION 0.2.3
     DESCRIPTION "Quake III Arena QVM Compiler & Decompiler Editor"
     LANGUAGES CXX C
 )
@@ -308,18 +308,27 @@ if(QVM_BUILD_GUI)
             "$<TARGET_FILE_DIR:q3vm_gui>/tools"
     )
 
-    # Ensure SDK headers are bundled with GUI executable
+    # Ensure SDK headers are bundled with GUI executable.
+    # `code/` holds the module sources; `ui/` sits next to it upstream and is
+    # required by the `#include "../../ui/menudef.h"` used throughout cgame and
+    # game, so both directories must keep their upstream relative layout.
     if(APPLE)
         add_custom_command(TARGET q3vm_gui POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy_directory
                 "${CMAKE_CURRENT_SOURCE_DIR}/third_party/quake3/code"
                 "$<TARGET_FILE_DIR:q3vm_gui>/../Resources/code"
+            COMMAND ${CMAKE_COMMAND} -E copy_directory
+                "${CMAKE_CURRENT_SOURCE_DIR}/third_party/quake3/ui"
+                "$<TARGET_FILE_DIR:q3vm_gui>/../Resources/ui"
         )
     else()
         add_custom_command(TARGET q3vm_gui POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy_directory
                 "${CMAKE_CURRENT_SOURCE_DIR}/third_party/quake3/code"
                 "$<TARGET_FILE_DIR:q3vm_gui>/code"
+            COMMAND ${CMAKE_COMMAND} -E copy_directory
+                "${CMAKE_CURRENT_SOURCE_DIR}/third_party/quake3/ui"
+                "$<TARGET_FILE_DIR:q3vm_gui>/ui"
         )
     endif()
 endif()
