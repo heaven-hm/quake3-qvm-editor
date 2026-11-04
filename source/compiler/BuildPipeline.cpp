@@ -10,6 +10,89 @@
 
 namespace qvm {
 
+namespace {
+
+// Accept either the Quake III code root or one of its module directories.
+// A module build needs the sibling game/ directory for the shared bg_* and
+// q_* implementations, so normalize code/cgame and code/q3_ui to code/.
+std::filesystem::path findModuleSourceRoot(const std::filesystem::path& sourceDir) {
+    std::error_code ec;
+    if (!std::filesystem::is_directory(sourceDir, ec)) {
+        return {};
+    }
+
+    for (auto candidate = sourceDir; !candidate.empty(); candidate = candidate.parent_path()) {
+        const bool hasGame = std::filesystem::is_directory(candidate / "game", ec);
+        const bool hasModule = std::filesystem::is_directory(candidate / "cgame", ec) ||
+                               std::filesystem::is_directory(candidate / "q3_ui", ec) ||
+                               std::filesystem::is_directory(candidate / "ui", ec);
+        if (hasGame && hasModule) {
+            return candidate;
+        }
+
+        // Do not walk outside a user-selected project looking for an unrelated
+        // Quake source tree.  The conventional SDK layout is <sdk>/code/.
+        if (candidate.filename() == "code") {
+            break;
+        }
+    }
+    return {};
+}
+
+bool needsBgLibAnnotationCompat(const std::filesystem::path& sourceFile) {
+    auto source = FileUtils::readFileText(sourceFile);
+    if (source.hasError()) {
+        return false;
+    }
+
+    const auto bgLib = source.value().find("#include \"bg_lib.h\"");
+    if (bgLib == std::string::npos) {
+        return false;
+    }
+
+    // Newer ioquake-derived bg_lib.h files assume q_shared.h has already
+    // declared these annotation macros.  The editor's standalone template
+    // intentionally includes only bg_lib.h, so give it the portable empty
+    // definitions before that header is parsed.
+    const auto qShared = source.value().find("#include \"q_shared.h\"");
+    return qShared == std::string::npos || qShared > bgLib;
+}
+
+bool needsVsnprintfCompat(const std::filesystem::path& sourceFile,
+                          const std::vector<std::filesystem::path>& includeDirs) {
+    auto source = FileUtils::readFileText(sourceFile);
+    if (source.hasError() || source.value().find("vsprintf(") == std::string::npos) {
+        return false;
+    }
+
+    for (const auto& includeDir : includeDirs) {
+        auto header = FileUtils::readFileText(includeDir / "bg_lib.h");
+        if (header.hasError()) {
+            continue;
+        }
+        // ioquake-derived SDKs expose the bounded Q_vsnprintf implementation
+        // rather than the original unbounded vsprintf symbol.
+        return header.value().find("Q_vsnprintf") != std::string::npos &&
+               header.value().find("int vsprintf(") == std::string::npos;
+    }
+    return false;
+}
+
+std::string quotedIncludePath(const std::filesystem::path& sourceFile) {
+    std::string path = std::filesystem::absolute(sourceFile).string();
+    std::string escaped;
+    escaped.reserve(path.size());
+    for (const char ch : path) {
+        if (ch == '\\' || ch == '"') {
+            escaped.push_back('\\');
+        }
+        escaped.push_back(ch);
+    }
+    return escaped;
+}
+
+} // namespace
+
 Result<BuildReport> BuildPipeline::execute(
     const CompilerConfig& config,
     BuildProgressCallback progressCallback,
@@ -75,6 +158,16 @@ Result<BuildReport> BuildPipeline::execute(
     auto mapping = ModuleConfig::getModuleMapping(activeConfig.module);
     ModuleFileList moduleFiles = ModuleConfig::getModuleFileList(activeConfig.module);
 
+    // Users commonly choose code/cgame, code/game or code/q3_ui in the GUI
+    // folder picker.  For a complete built-in module we must compile the
+    // shared game sources too, so use their common code/ root when present.
+    if (activeConfig.selectedFiles.empty() && activeConfig.module != ModuleType::Custom &&
+        std::filesystem::is_directory(activeConfig.sourceDir)) {
+        if (const auto root = findModuleSourceRoot(activeConfig.sourceDir); !root.empty()) {
+            activeConfig.sourceDir = root;
+        }
+    }
+
     // Module-aware single-file build:
     //   `q3vm compile <module>.c` resolves the whole module (cg_main.c + bg/q shared
     //   sources + syscalls) and treats the given file as the custom vmMain entry.
@@ -88,6 +181,23 @@ Result<BuildReport> BuildPipeline::execute(
         }
         auto probe = ModuleConfig::resolveSourceFiles(parentDir, moduleFiles);
         bool moduleEntryFound = !probe.empty() && std::filesystem::exists(probe.front());
+
+        // A standalone editor file normally lives outside code/game et al.
+        // When the user supplies an SDK, that SDK is the authoritative source
+        // for the rest of the selected module (including bg_lib.c).  Treat the
+        // selected file as a vmMain override rather than leaving it as an
+        // under-linked one-object QVM.
+        if (!moduleEntryFound && !activeConfig.sdkDir.empty()) {
+            auto sdkSourceDir = activeConfig.sdkDir;
+            if (std::filesystem::is_directory(sdkSourceDir / "code")) {
+                sdkSourceDir /= "code";
+            }
+            auto sdkProbe = ModuleConfig::resolveSourceFiles(sdkSourceDir, moduleFiles);
+            if (!sdkProbe.empty() && std::filesystem::exists(sdkProbe.front())) {
+                parentDir = sdkSourceDir;
+                moduleEntryFound = true;
+            }
+        }
         if (moduleEntryFound) {
             activeConfig.entryOverrideFile = activeConfig.sourceDir;
             activeConfig.sourceDir = parentDir;
@@ -365,6 +475,31 @@ Result<BuildReport> BuildPipeline::execute(
     for (size_t i = 0; i < existingCFiles.size(); ++i) {
         const auto& cFile = existingCFiles[i];
         auto outAsm = intermediateDir / (cFile.stem().string() + ".asm");
+        std::filesystem::path compilerInput = cFile;
+
+        const bool addAnnotationCompat = needsBgLibAnnotationCompat(cFile);
+        const bool addVsnprintfCompat = needsVsnprintfCompat(cFile, includeDirs);
+        if (addAnnotationCompat || addVsnprintfCompat) {
+            compilerInput = intermediateDir / (cFile.stem().string() + "_qvm_compat.c");
+            std::string compatSource;
+            if (addAnnotationCompat) {
+                compatSource +=
+                    "#ifndef Q_PRINTF_FUNC\n"
+                    "#define Q_PRINTF_FUNC(fmt, va)\n"
+                    "#endif\n"
+                    "#ifndef Q_SCANF_FUNC\n"
+                    "#define Q_SCANF_FUNC(fmt, va)\n"
+                    "#endif\n";
+            }
+            if (addVsnprintfCompat) {
+                compatSource +=
+                    "#define vsprintf(buffer, format, args) Q_vsnprintf((buffer), 1024, (format), (args))\n";
+            }
+            compatSource += "#include \"" + quotedIncludePath(cFile) + "\"\n";
+            if (auto writeErr = FileUtils::writeFileText(compilerInput, compatSource); writeErr.isError()) {
+                return writeErr;
+            }
+        }
 
         if (progressCallback) {
             std::string msg = "Compiling (" + std::to_string(i + 1) + "/" +
@@ -378,7 +513,7 @@ Result<BuildReport> BuildPipeline::execute(
             fileDefines.insert(fileDefines.end(), extraIt->second.begin(), extraIt->second.end());
         }
 
-        auto res = runner.compileCFile(cFile, outAsm, includeDirs, fileDefines, config.debugSymbols, logCallback);
+        auto res = runner.compileCFile(compilerInput, outAsm, includeDirs, fileDefines, config.debugSymbols, logCallback);
         report.lccOutputs.push_back(res.combinedOutput);
 
         if (!res.success || !std::filesystem::exists(outAsm)) {

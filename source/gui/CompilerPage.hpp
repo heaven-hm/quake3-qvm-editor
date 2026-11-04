@@ -1,10 +1,10 @@
 #pragma once
 
-#include "qvm/compiler/BuildPipeline.hpp"
-#include "qvm/compiler/Compiler.hpp"
-#include "qvm/compiler/CompilerConfig.hpp"
 #include "qvm/compiler/ModuleConfig.hpp"
+#include "qvm/runtime/QvmRuntime.hpp"
+
 #include "source/gui/widgets/CodeEditor.hpp"
+
 #include <QCheckBox>
 #include <QComboBox>
 #include <QLabel>
@@ -21,9 +21,8 @@ namespace qvm::gui {
 
 class CompileWorker : public QThread {
     Q_OBJECT
-
 public:
-    explicit CompileWorker(CompilerConfig config, std::string sourceCode = "", QObject* parent = nullptr);
+    explicit CompileWorker(CompilerConfig config, std::string sourceCode, QObject* parent = nullptr);
     void run() override;
 
 signals:
@@ -36,6 +35,21 @@ private:
     std::string sourceCode_;
 };
 
+class RunWorker : public QThread {
+    Q_OBJECT
+public:
+    explicit RunWorker(QString qvmPath, qvm::RuntimeOptions opts, QObject* parent = nullptr);
+    void run() override;
+
+signals:
+    void outputReceived(QString line, bool isError);
+    void finished(bool success, QString summary);
+
+private:
+    QString qvmPath_;
+    qvm::RuntimeOptions opts_;
+};
+
 class CompilerPage : public QWidget {
     Q_OBJECT
 
@@ -44,6 +58,7 @@ public:
 
     void setSourceDirectory(const QString& path);
     void setTheme(EditorTheme theme);
+    void openSourceFile(const QString& path);
 
 signals:
     void compilationSucceeded(const QString& qvmFilePath);
@@ -66,11 +81,21 @@ private slots:
     void onProgressUpdated(int current, int total, QString message);
     void onLogReceived(QString message, bool isError);
     void onCompilationFinished(bool success, QString summary, QString qvmPath);
+    void onRunOutput(QString line, bool isError);
+    void onRunFinished(bool success, QString summary);
+    void onStartRun();
+    void onClearLogs();
+    void onExportLogs();
+
+protected:
+    void dragEnterEvent(QDragEnterEvent* event) override;
+    void dropEvent(QDropEvent* event) override;
 
 private:
     void setupUi();
     void setupEditorTab(QWidget* parent);
     void setupDirectoryTab(QWidget* parent);
+    void appendLog(QPlainTextEdit* destination, const QString& message);
 
     QTabWidget* modeTabs_ = nullptr;
 
@@ -89,6 +114,7 @@ private:
     QCheckBox* editorVerboseCheck_ = nullptr;
     QLineEdit* cliCommandPreviewEdit_ = nullptr;
     QPushButton* compileEditorBtn_ = nullptr;
+    QPushButton* runBtn_ = nullptr;
 
     // --- Directory Batch Build Tab UI ---
     QComboBox* moduleCombo_ = nullptr;
@@ -114,9 +140,12 @@ private:
     QPlainTextEdit* lccLogsEdit_ = nullptr;
     QPlainTextEdit* q3asmLogsEdit_ = nullptr;
     QPlainTextEdit* errorLogsEdit_ = nullptr;
+    QPlainTextEdit* vmOutputEdit_ = nullptr;
 
     EditorTheme currentTheme_{EditorTheme::Dark};
-    QString lastSourceDir_; // directory of the last opened C file (module root hint)
+    QString lastSourceDir_;
+    QString lastQvmPath_;
+    QString currentSourcePath_;
 };
 
 } // namespace qvm::gui

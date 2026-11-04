@@ -8,6 +8,10 @@
 namespace qvm {
 
 struct ModuleFileList {
+    // Canonical child of a Quake III code root that owns the module's entry
+    // sources.  This disambiguates SDKs that also ship unrelated top-level
+    // files with names such as g_main.c.
+    std::string primarySourceDirectory;
     std::string entryPointFile; // file containing vmMain, MUST be first
     std::vector<std::string> cFiles;
     std::vector<std::string> asmFiles;

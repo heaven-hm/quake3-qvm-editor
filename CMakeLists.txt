@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(quake3_qvm_editor
-    VERSION 0.2.3
+    VERSION 0.2.4
     DESCRIPTION "Quake III Arena QVM Compiler & Decompiler Editor"
     LANGUAGES CXX C
 )
@@ -21,6 +21,7 @@ endif()
 # Global build options
 option(QVM_BUILD_GUI "Build Qt 6 Widgets Desktop GUI" ON)
 option(QVM_BUILD_TESTS "Build GoogleTest automated unit tests" ON)
+set(QVM_CORPUS_DIR "" CACHE PATH "Optional directory of real .qvm files for CLI corpus smoke tests")
 
 # Global output directories
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
@@ -31,6 +32,7 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(CompilerOptions)
 include(Dependencies)
+include(QvmRuntime)
 
 # ==============================================================================
 # Native Quake III Arena Toolchain (LCC & Q3ASM)
@@ -203,7 +205,7 @@ target_include_directories(qvm_decompiler_core PUBLIC
 # Standalone CLI Executable (q3vm - C++20, NO Qt dependency)
 # ==============================================================================
 add_executable(q3vm source/cli/main.cpp)
-target_link_libraries(q3vm PRIVATE qvm_compiler_core qvm_decompiler_core)
+target_link_libraries(q3vm PRIVATE qvm_compiler_core qvm_decompiler_core qvm_runtime_core)
 target_include_directories(q3vm PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
 # Copy tools to CLI output directory after build
@@ -275,6 +277,7 @@ if(QVM_BUILD_GUI)
             Qt6::Svg
             qvm_compiler_core
             qvm_decompiler_core
+            qvm_runtime_core
         )
 
         target_include_directories(q3vm_gui PRIVATE
@@ -290,6 +293,7 @@ if(QVM_BUILD_GUI)
         target_link_libraries(q3vm_gui PRIVATE
             qvm_decompiler_core
             qvm_compiler_core
+            qvm_runtime_core
             comctl32
             comdlg32
             shell32
@@ -342,6 +346,7 @@ if(QVM_BUILD_TESTS)
         tests/test_instruction_decoder.cpp
         tests/test_compiler.cpp
         tests/test_decompiler.cpp
+        tests/test_runner.cpp
     )
 
     add_executable(q3vm_tests ${TEST_SOURCES})
@@ -350,11 +355,54 @@ if(QVM_BUILD_TESTS)
         GTest::gtest_main
         qvm_compiler_core
         qvm_decompiler_core
+        qvm_runtime_core
     )
     target_include_directories(q3vm_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
     include(GoogleTest)
     gtest_discover_tests(q3vm_tests WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
+
+    if(QVM_BUILD_GUI AND QVM_HAVE_QT6)
+        add_executable(q3vm_gui_tests
+            tests/test_gui_compiler.cpp
+            source/gui/CompilerPage.hpp
+            source/gui/CompilerPage.cpp
+            source/gui/widgets/CodeEditor.hpp
+            source/gui/widgets/CodeEditor.cpp
+            source/gui/widgets/CSyntaxHighlighter.hpp
+            source/gui/widgets/CSyntaxHighlighter.cpp
+            source/gui/widgets/AsmSyntaxHighlighter.hpp
+            source/gui/widgets/AsmSyntaxHighlighter.cpp
+        )
+        target_link_libraries(q3vm_gui_tests PRIVATE
+            GTest::gtest
+            GTest::gtest_main
+            Qt6::Core
+            Qt6::Gui
+            Qt6::Widgets
+            qvm_compiler_core
+            qvm_decompiler_core
+            qvm_runtime_core
+        )
+        target_include_directories(q3vm_gui_tests PRIVATE
+            "${CMAKE_CURRENT_SOURCE_DIR}"
+            "${CMAKE_CURRENT_SOURCE_DIR}/include"
+        )
+        add_test(NAME GuiCompilerPageStarterTemplate
+                 COMMAND q3vm_gui_tests)
+        set_tests_properties(GuiCompilerPageStarterTemplate PROPERTIES
+            WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+            ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QVM_NONINTERACTIVE_TEST=1")
+    endif()
+
+    if(QVM_CORPUS_DIR)
+        add_test(NAME QvmCorpusCliSmoke
+            COMMAND ${CMAKE_COMMAND}
+                -DQ3VM=$<TARGET_FILE:q3vm>
+                -DQVM_CORPUS_DIR=${QVM_CORPUS_DIR}
+                -DQVM_CORPUS_OUTPUT_DIR=${CMAKE_BINARY_DIR}/qvm-corpus-smoke
+                -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/QvmCorpusSmoke.cmake)
+    endif()
 endif()
 
 # ==============================================================================

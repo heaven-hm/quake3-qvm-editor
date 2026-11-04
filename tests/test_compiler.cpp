@@ -309,6 +309,58 @@ TEST(ModuleConfigTest, DeducesModuleFromSourceFileNames) {
     EXPECT_EQ(qvm::ModuleConfig::deduceModuleFromSourceOrSyscall("build.c"), qvm::ModuleType::Custom);
 }
 
+TEST(CompilerTest, OfficialModuleSubdirectoriesResolveSharedSources) {
+    // The CLI accepts a module directory (for example code/cgame), not only
+    // the umbrella code/ directory.  cgame and UI pull common implementation
+    // files from code/game, so this guards against silently omitting them.
+    struct Case {
+        qvm::ModuleType module;
+        const char* sourceDir;
+        const char* outputName;
+    };
+    const Case cases[] = {
+        {qvm::ModuleType::CGame, "third_party/quake3/code/cgame", "cgame.qvm"},
+        {qvm::ModuleType::Ui, "third_party/quake3/code/q3_ui", "ui.qvm"},
+    };
+
+    for (const auto& c : cases) {
+        const auto outputDir = std::filesystem::path("build/test_module_subdir") /
+                               qvm::moduleTypeToString(c.module);
+        std::filesystem::remove_all(outputDir);
+
+        qvm::CompilerConfig config;
+        config.module = c.module;
+        config.sourceDir = c.sourceDir;
+        config.sdkDir = "third_party/quake3/code";
+        config.outputDir = outputDir;
+
+        auto res = qvm::Compiler::compile(config);
+        ASSERT_TRUE(res.hasValue()) << qvm::moduleTypeToString(c.module) << ": "
+                                    << (res.hasError() ? res.error().message() : "");
+        EXPECT_EQ(res.value().outputQvmPath.filename().string(), c.outputName);
+        EXPECT_TRUE(std::filesystem::is_regular_file(res.value().outputQvmPath));
+    }
+}
+
+TEST(CompilerTest, StandaloneStarterTemplateLinksFullSdkModule) {
+    // This is the exact standalone editor template shape: it includes bg_lib.h
+    // and calls vsprintf/trap_Print.  With an SDK selected it must link the
+    // selected module rather than produce an under-linked one-object QVM.
+    const std::filesystem::path outputDir = "build/test_starter_template";
+    std::filesystem::remove_all(outputDir);
+
+    qvm::CompilerConfig config;
+    config.module = qvm::ModuleType::QaGame;
+    config.sourceDir = "tests/fixtures/editor_starter_template.c";
+    config.sdkDir = "third_party/quake3/code";
+    config.outputDir = outputDir;
+    config.outputName = "starter.qvm";
+
+    auto res = qvm::Compiler::compile(config);
+    ASSERT_TRUE(res.hasValue()) << (res.hasError() ? res.error().message() : "");
+    EXPECT_TRUE(std::filesystem::is_regular_file(res.value().outputQvmPath));
+}
+
 TEST(CompilerTest, CustomEntryLinksFullModuleAndEmitsMappedOutput) {
     std::filesystem::path tmpDir = "build/test_module_entry";
     std::filesystem::remove_all(tmpDir);

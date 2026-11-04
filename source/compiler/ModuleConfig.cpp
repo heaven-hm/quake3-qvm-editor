@@ -8,6 +8,7 @@ ModuleFileList ModuleConfig::getModuleFileList(ModuleType type) {
 
     switch (type) {
         case ModuleType::QaGame:
+            list.primarySourceDirectory = "game";
             list.defaultOutputBaseName = "qagame";
             list.defaultDefines = {"-DQ3_VM"};
             list.defaultRelativeIncludes = {"cgame", "game", "q3_ui", "."};
@@ -25,6 +26,7 @@ ModuleFileList ModuleConfig::getModuleFileList(ModuleType type) {
             break;
 
         case ModuleType::CGame:
+            list.primarySourceDirectory = "cgame";
             list.defaultOutputBaseName = "cgame";
             list.defaultDefines = {"-DQ3_VM", "-DCGAME"};
             list.defaultRelativeIncludes = {"cgame", "game", "q3_ui", "."};
@@ -40,6 +42,7 @@ ModuleFileList ModuleConfig::getModuleFileList(ModuleType type) {
             break;
 
         case ModuleType::Ui:
+            list.primarySourceDirectory = "q3_ui";
             list.defaultOutputBaseName = "ui";
             list.defaultDefines = {"-DQ3_VM"};
             list.defaultRelativeIncludes = {"cgame", "game", "q3_ui", "ui", "."};
@@ -60,6 +63,7 @@ ModuleFileList ModuleConfig::getModuleFileList(ModuleType type) {
             break;
 
         case ModuleType::Custom:
+            list.primarySourceDirectory.clear();
             list.defaultOutputBaseName = "custom";
             list.defaultDefines = {"-DQ3_VM"};
             list.defaultRelativeIncludes = {"."};
@@ -179,7 +183,22 @@ std::vector<std::filesystem::path> ModuleConfig::resolveSourceFiles(
 
     std::vector<std::filesystem::path> resolved;
 
+    std::error_code rootEc;
+    const bool hasModuleTree =
+        !fileList.primarySourceDirectory.empty() &&
+        std::filesystem::is_directory(baseSourceDir / fileList.primarySourceDirectory, rootEc);
+
     auto searchFile = [&](const std::string& filename) -> std::filesystem::path {
+        // When the chosen directory is the common code root, prefer the
+        // requested module tree.  Some modern/ioquake-derived SDKs include
+        // top-level demos named g_main.c, which are not qagame sources.
+        if (hasModuleTree) {
+            auto modulePath = baseSourceDir / fileList.primarySourceDirectory / filename;
+            if (std::filesystem::exists(modulePath)) {
+                return modulePath;
+            }
+        }
+
         // 1. Direct path in base source directory
         auto direct = baseSourceDir / filename;
         if (std::filesystem::exists(direct)) {

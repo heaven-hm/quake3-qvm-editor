@@ -1,22 +1,94 @@
 #include "source/gui/CompilerPage.hpp"
+#include "qvm/compiler/Compiler.hpp"
 #include <QApplication>
 #include <QClipboard>
+#include <QDateTime>
+#include <QDragEnterEvent>
 #include <QFileDialog>
 #include <QFormLayout>
 #include <QGroupBox>
 #include <QHBoxLayout>
 #include <QIcon>
 #include <QMessageBox>
+#include <QMimeData>
 #include <QShortcut>
 #include <QSplitter>
 #include <QVBoxLayout>
 
 namespace qvm::gui {
 
-namespace {
+CompileWorker::CompileWorker(CompilerConfig config, std::string sourceCode, QObject* parent)
+    : QThread(parent), config_(std::move(config)), sourceCode_(std::move(sourceCode)) {}
+
+void CompileWorker::run() {
+    auto progress = [this](int current, int total, std::string_view msg) {
+        emit progressUpdated(current, total, QString::fromUtf8(msg.data(), msg.size()));
+    };
+    auto log = [this](std::string_view line, bool isErr) {
+        emit logReceived(QString::fromUtf8(line.data(), line.size()), isErr);
+    };
+
+    if (!sourceCode_.empty()) {
+        // In-memory compile from the editor buffer.
+        auto res = Compiler::compileSourceCode(sourceCode_, config_, progress, log);
+        if (res.hasError()) {
+            emit finished(false, QString::fromStdString(res.error().message()), QString());
+        } else {
+            const auto& r = res.value();
+            emit finished(true,
+                          QString("Compiled %1 (%2 bytes)").arg(QFileInfo(QString::fromStdString(r.outputQvmPath.string())).fileName()).arg(r.qvmFileSize),
+                          QString::fromStdString(r.outputQvmPath.string()));
+        }
+    } else {
+        // Directory/file-based compile.
+        auto res = Compiler::compile(config_, progress, log);
+        if (res.hasError()) {
+            emit finished(false, QString::fromStdString(res.error().message()), QString());
+        } else {
+            const auto& r = res.value();
+            emit finished(true,
+                          QString("Compiled %1 (%2 bytes)").arg(QFileInfo(QString::fromStdString(r.outputQvmPath.string())).fileName()).arg(r.qvmFileSize),
+                          QString::fromStdString(r.outputQvmPath.string()));
+        }
+    }
+}
+
+RunWorker::RunWorker(QString qvmPath, qvm::RuntimeOptions opts, QObject* parent)
+    : QThread(parent), qvmPath_(std::move(qvmPath)), opts_(std::move(opts)) {}
+
+void RunWorker::run() {
+    auto onOutput = [this](std::string_view line, bool isError) {
+        emit outputReceived(QString::fromUtf8(line.data(), line.size()), isError);
+    };
+    auto res = qvm::QvmRuntime::run(qvmPath_.toStdString(), opts_, onOutput);
+    if (!res.hasValue()) {
+        emit finished(false, QString::fromStdString(res.error().message()));
+    } else {
+        const auto& r = res.value();
+        for (const auto& traceLine : r.trace) {
+            emit outputReceived(QString("TRACE  %1").arg(QString::fromStdString(traceLine)), false);
+        }
+        emit finished(r.success,
+                      r.success ? QString("VM exited OK (%1 syscalls, %2 ms)").arg(r.syscallCount).arg((int)r.durationMs)
+                                : QString("QVM terminated: %1").arg(QString::fromStdString(r.error)));
+    }
+}
+
+// ==============================================================================
+// CompilerPage Implementation
+// ==============================================================================
 
 const char* const kDefaultVmMainTemplate =
-R"(#include "bg_lib.h"
+R"(// Compatibility for newer ioquake-derived SDKs whose bg_lib.h expects
+// these optional compiler annotations to be declared by q_shared.h first.
+#ifndef Q_PRINTF_FUNC
+#define Q_PRINTF_FUNC(fmt, va)
+#endif
+#ifndef Q_SCANF_FUNC
+#define Q_SCANF_FUNC(fmt, va)
+#endif
+
+#include "bg_lib.h"
 
 // Forward declarations
 void printf(const char* fmt, ...);
@@ -51,7 +123,7 @@ void printf(const char* fmt, ...)
     char text[1024];
 
     va_start(argptr, fmt);
-    vsprintf(text, fmt, argptr);
+    Q_vsnprintf(text, sizeof(text), fmt, argptr);
     va_end(argptr);
 
     // trap_Print is available in the qagame, cgame and ui syscall tables.
@@ -64,48 +136,16 @@ int fibonacci(int n)
 {
     if (n <= 1)
         return n;
-    return fibonacci(n - 1) + fibonacci(n - 2);
+    return    fibonacci(n - 1) + fibonacci(n - 2);
 }
 )";
-
-} // anonymous namespace
-
-// ==============================================================================
-// CompileWorker Implementation (Background Thread)
-// ==============================================================================
-
-CompileWorker::CompileWorker(CompilerConfig config, std::string sourceCode, QObject* parent)
-    : QThread(parent), config_(std::move(config)), sourceCode_(std::move(sourceCode)) {}
-
-void CompileWorker::run() {
-    auto progress = [this](int current, int total, std::string_view msg) {
-        emit progressUpdated(current, total, QString::fromUtf8(msg.data(), static_cast<qsizetype>(msg.size())));
-    };
-
-    auto log = [this](std::string_view line, bool isErr) {
-        emit logReceived(QString::fromUtf8(line.data(), static_cast<qsizetype>(line.size())), isErr);
-    };
-
-    Result<BuildReport> result = sourceCode_.empty()
-        ? Compiler::compile(config_, progress, log)
-        : Compiler::compileSourceCode(sourceCode_, config_, progress, log);
-
-    if (result.hasError()) {
-        emit finished(false, QString::fromStdString(result.error().message()), QString());
-    } else {
-        const auto& report = result.value();
-        QString summary = QString("QVM compiled successfully (%1 bytes) in %2 seconds")
-                              .arg(report.qvmFileSize)
-                              .arg(report.durationSeconds, 0, 'f', 2);
-        emit finished(true, summary, QString::fromStdString(report.outputQvmPath.string()));
-    }
-}
 
 // ==============================================================================
 // CompilerPage Implementation
 // ==============================================================================
 
 CompilerPage::CompilerPage(QWidget* parent) : QWidget(parent) {
+    setAcceptDrops(true);
     setupUi();
     onLoadStarterTemplate();
     updateCliCommandPreview();
@@ -148,29 +188,50 @@ void CompilerPage::setupUi() {
     statusLabel_->setStyleSheet("color: #9cad9f; font-weight: 500; font-size: 11px;");
     bottomLayout->addWidget(statusLabel_);
 
+    auto logsToolbar = new QHBoxLayout();
+    auto clearLogs = new QPushButton(QIcon(":/icons/clear.svg"), tr("Clear Logs"), this);
+    auto exportLogs = new QPushButton(QIcon(":/icons/export.svg"), tr("Save Logs..."), this);
+    connect(clearLogs, &QPushButton::clicked, this, &CompilerPage::onClearLogs);
+    connect(exportLogs, &QPushButton::clicked, this, &CompilerPage::onExportLogs);
+    logsToolbar->addStretch();
+    logsToolbar->addWidget(clearLogs);
+    logsToolbar->addWidget(exportLogs);
+    bottomLayout->addLayout(logsToolbar);
+
     logTabs_ = new QTabWidget(this);
     logTabs_->setFixedHeight(160);
 
     allLogsEdit_ = new QPlainTextEdit(this);
     allLogsEdit_->setReadOnly(true);
     allLogsEdit_->setFont(QFont("Menlo", 10));
+    allLogsEdit_->document()->setMaximumBlockCount(4000);
 
     lccLogsEdit_ = new QPlainTextEdit(this);
     lccLogsEdit_->setReadOnly(true);
     lccLogsEdit_->setFont(QFont("Menlo", 10));
+    lccLogsEdit_->document()->setMaximumBlockCount(4000);
 
     q3asmLogsEdit_ = new QPlainTextEdit(this);
     q3asmLogsEdit_->setReadOnly(true);
     q3asmLogsEdit_->setFont(QFont("Menlo", 10));
+    q3asmLogsEdit_->document()->setMaximumBlockCount(4000);
 
     errorLogsEdit_ = new QPlainTextEdit(this);
     errorLogsEdit_->setReadOnly(true);
     errorLogsEdit_->setFont(QFont("Menlo", 10));
+    errorLogsEdit_->document()->setMaximumBlockCount(4000);
 
     logTabs_->addTab(allLogsEdit_, QIcon(":/icons/editor.svg"), tr("All Output"));
     logTabs_->addTab(lccLogsEdit_, QIcon(":/icons/code.svg"), tr("LCC Output"));
     logTabs_->addTab(q3asmLogsEdit_, QIcon(":/icons/asm.svg"), tr("Q3ASM Output"));
     logTabs_->addTab(errorLogsEdit_, QIcon(":/icons/info.svg"), tr("Errors & Warnings"));
+
+    vmOutputEdit_ = new QPlainTextEdit(this);
+    vmOutputEdit_->setReadOnly(true);
+    vmOutputEdit_->setFont(QFont("Menlo", 10));
+    vmOutputEdit_->document()->setMaximumBlockCount(4000);
+    logTabs_->addTab(vmOutputEdit_, QIcon(":/icons/play.svg"), tr("VM Output"));
+
     bottomLayout->addWidget(logTabs_);
 
     mainLayout->addWidget(bottomGroup);
@@ -202,9 +263,17 @@ void CompilerPage::setupEditorTab(QWidget* parent) {
     compileEditorBtn_->setFixedHeight(32);
     connect(compileEditorBtn_, &QPushButton::clicked, this, &CompilerPage::onStartCompileEditor);
 
+    runBtn_ = new QPushButton(QIcon(":/icons/play.svg"), tr("Run QVM (F5)"), this);
+    runBtn_->setFixedHeight(32);
+    connect(runBtn_, &QPushButton::clicked, this, &CompilerPage::onStartRun);
+
     // Ctrl+Enter / Cmd+Enter Shortcut
     auto shortcut = new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_Return), this);
     connect(shortcut, &QShortcut::activated, this, &CompilerPage::onStartCompileEditor);
+
+    // F5 -> Run QVM
+    auto runShortcut = new QShortcut(QKeySequence(Qt::Key_F5), this);
+    connect(runShortcut, &QShortcut::activated, this, &CompilerPage::onStartRun);
 
     barLayout->addWidget(openBtn);
     barLayout->addWidget(saveBtn);
@@ -212,6 +281,7 @@ void CompilerPage::setupEditorTab(QWidget* parent) {
     barLayout->addWidget(copyCmdBtn);
     barLayout->addStretch();
     barLayout->addWidget(compileEditorBtn_);
+    barLayout->addWidget(runBtn_);
     layout->addLayout(barLayout);
 
     // Splitter: Editor on Left/Center, Build Flags on Right
@@ -415,23 +485,38 @@ void CompilerPage::onOpenCFile() {
     QString path = QFileDialog::getOpenFileName(
         this, tr("Open C Source File"), QString(), tr("C Source Files (*.c *.h);;All Files (*.*)"));
     if (!path.isEmpty()) {
-        QFile file(path);
-        if (file.open(QFile::ReadOnly | QFile::Text)) {
-            cCodeEditor_->setPlainText(QString::fromUtf8(file.readAll()));
-            editorOutputNameEdit_->setText(QFileInfo(path).baseName() + ".qvm");
-            lastSourceDir_ = QFileInfo(path).absolutePath();
-            updateCliCommandPreview();
-        }
+        openSourceFile(path);
     }
 }
 
+void CompilerPage::openSourceFile(const QString& path) {
+    QFile file(path);
+    if (!file.open(QFile::ReadOnly | QFile::Text)) {
+        QMessageBox::critical(this, tr("Open Source Failed"), tr("Cannot open %1").arg(path));
+        return;
+    }
+    cCodeEditor_->setPlainText(QString::fromUtf8(file.readAll()));
+    cCodeEditor_->document()->setModified(false);
+    currentSourcePath_ = path;
+    editorOutputNameEdit_->setText(QFileInfo(path).baseName() + ".qvm");
+    lastSourceDir_ = QFileInfo(path).absolutePath();
+    appendLog(allLogsEdit_, tr("Opened source: %1").arg(path));
+    updateCliCommandPreview();
+}
+
 void CompilerPage::onSaveCFile() {
-    QString path = QFileDialog::getSaveFileName(
-        this, tr("Save C Source File"), "g_main.c", tr("C Source Files (*.c);;All Files (*.*)"));
+    QString path = currentSourcePath_;
+    if (path.isEmpty()) {
+        path = QFileDialog::getSaveFileName(
+            this, tr("Save C Source File"), "g_main.c", tr("C Source Files (*.c);;All Files (*.*)"));
+    }
     if (!path.isEmpty()) {
         QFile file(path);
         if (file.open(QFile::WriteOnly | QFile::Text)) {
             file.write(cCodeEditor_->toPlainText().toUtf8());
+            currentSourcePath_ = path;
+            cCodeEditor_->document()->setModified(false);
+            appendLog(allLogsEdit_, tr("Saved source: %1").arg(path));
         }
     }
 }
@@ -703,16 +788,16 @@ void CompilerPage::onProgressUpdated(int current, int total, QString message) {
 }
 
 void CompilerPage::onLogReceived(QString message, bool isError) {
-    allLogsEdit_->appendPlainText(message);
+    appendLog(allLogsEdit_, message);
 
     if (message.contains("Compiling") || message.contains("cpp:") || message.contains("lcc")) {
-        lccLogsEdit_->appendPlainText(message);
+        appendLog(lccLogsEdit_, message);
     } else if (message.contains("Assembling") || message.contains("q3asm") || message.contains("Pass")) {
-        q3asmLogsEdit_->appendPlainText(message);
+        appendLog(q3asmLogsEdit_, message);
     }
 
     if (isError || message.contains("error:", Qt::CaseInsensitive) || message.contains("warning:", Qt::CaseInsensitive)) {
-        errorLogsEdit_->appendPlainText(message);
+        appendLog(errorLogsEdit_, message);
     }
 }
 
@@ -720,14 +805,131 @@ void CompilerPage::onCompilationFinished(bool success, QString summary, QString 
     progressBar_->setVisible(false);
     compileEditorBtn_->setEnabled(true);
     compileDirBtn_->setEnabled(true);
-    statusLabel_->setText(summary);
+    const QString statusText = summary.simplified();
+    statusLabel_->setText(statusText.size() > 240 ? statusText.left(237) + "..." : statusText);
+    statusLabel_->setToolTip(summary);
 
     if (success) {
+        lastQvmPath_ = qvmPath;
         allLogsEdit_->appendPlainText("\n=== BUILD SUCCEEDED ===\n" + summary);
         emit compilationSucceeded(qvmPath);
     } else {
         allLogsEdit_->appendPlainText("\n=== BUILD FAILED ===\n" + summary);
-        QMessageBox::critical(this, tr("Build Failed"), summary);
+        QMessageBox errorBox(QMessageBox::Critical, tr("Build Failed"),
+                             tr("Compilation failed. Full diagnostics are available in "
+                                "Build Logs → Errors & Warnings."),
+                             QMessageBox::Ok, this);
+        errorBox.setDetailedText(summary);
+        if (!qEnvironmentVariableIsSet("QVM_NONINTERACTIVE_TEST")) {
+            errorBox.exec();
+        }
+    }
+}
+
+void CompilerPage::onStartRun() {
+    // Prefer the QVM path produced by the most recent successful compile in this
+    // page; fall back to the editor output dir + name if no compile has happened.
+    QString qvmPath;
+    if (!lastQvmPath_.isEmpty()) {
+        qvmPath = lastQvmPath_;
+    } else {
+        QString outDir = editorOutputDirEdit_->text().trimmed();
+        QString outName = editorOutputNameEdit_->text().trimmed();
+        if (outDir.isEmpty() || outName.isEmpty()) {
+            QMessageBox::warning(this, tr("No QVM to Run"),
+                tr("Compile a QVM first, or set the editor output directory and output name."));
+            return;
+        }
+        QDir dir(outDir);
+        if (!dir.exists()) {
+            QMessageBox::warning(this, tr("Output Directory Missing"),
+                tr("The editor output directory does not exist: %1").arg(outDir));
+            return;
+        }
+        qvmPath = dir.filePath(outName);
+    }
+
+    if (!QFileInfo::exists(qvmPath)) {
+        QMessageBox::warning(this, tr("QVM File Missing"),
+            tr("Cannot find QVM file: %1").arg(qvmPath));
+        return;
+    }
+
+    vmOutputEdit_->clear();
+    vmOutputEdit_->appendPlainText(tr("Running %1...").arg(QFileInfo(qvmPath).fileName()));
+    logTabs_->setCurrentWidget(vmOutputEdit_);
+    vmOutputEdit_->setFocus();
+    runBtn_->setEnabled(false);
+    statusLabel_->setText(tr("Running %1...").arg(QFileInfo(qvmPath).fileName()));
+
+    qvm::RuntimeOptions opts;
+    opts.module = qvm::runtimeModuleFromString(
+        editorModuleCombo_->currentData().toString().toStdString());
+
+    auto* worker = new RunWorker(qvmPath, opts, this);
+    connect(worker, &RunWorker::outputReceived, this, &CompilerPage::onRunOutput);
+    connect(worker, &RunWorker::finished, this, &CompilerPage::onRunFinished);
+    connect(worker, &RunWorker::finished, worker, &QObject::deleteLater);
+    worker->start();
+}
+
+void CompilerPage::onRunOutput(QString line, bool isError) {
+    appendLog(vmOutputEdit_, line);
+    if (isError) {
+        appendLog(errorLogsEdit_, line);
+    }
+}
+
+void CompilerPage::onClearLogs() {
+    for (auto* log : {allLogsEdit_, lccLogsEdit_, q3asmLogsEdit_, errorLogsEdit_, vmOutputEdit_}) log->clear();
+    statusLabel_->setText(tr("Logs cleared."));
+}
+
+void CompilerPage::onExportLogs() {
+    const QString path = QFileDialog::getSaveFileName(this, tr("Save Logs"), "qvm-editor.log",
+                                                      tr("Log Files (*.log *.txt);;All Files (*.*)"));
+    if (path.isEmpty()) return;
+    QFile file(path);
+    if (!file.open(QFile::WriteOnly | QFile::Text)) {
+        QMessageBox::critical(this, tr("Save Logs Failed"), tr("Cannot write %1").arg(path));
+        return;
+    }
+    file.write(allLogsEdit_->toPlainText().toUtf8());
+    file.write("\n\n=== VM OUTPUT ===\n");
+    file.write(vmOutputEdit_->toPlainText().toUtf8());
+    statusLabel_->setText(tr("Logs saved to %1").arg(path));
+}
+
+void CompilerPage::appendLog(QPlainTextEdit* destination, const QString& message) {
+    destination->appendPlainText(QDateTime::currentDateTime().toString("HH:mm:ss.zzz") + "  " + message);
+}
+
+void CompilerPage::dragEnterEvent(QDragEnterEvent* event) {
+    if (!event->mimeData()->hasUrls()) return event->ignore();
+    const QString path = event->mimeData()->urls().value(0).toLocalFile();
+    if (path.endsWith(".c", Qt::CaseInsensitive) || path.endsWith(".h", Qt::CaseInsensitive)) {
+        event->acceptProposedAction();
+    } else {
+        event->ignore();
+    }
+}
+
+void CompilerPage::dropEvent(QDropEvent* event) {
+    const QString path = event->mimeData()->urls().value(0).toLocalFile();
+    if (!path.isEmpty()) {
+        openSourceFile(path);
+        event->acceptProposedAction();
+    }
+}
+
+void CompilerPage::onRunFinished(bool success, QString summary) {
+    vmOutputEdit_->appendPlainText("\n=== VM FINISHED ===\n" + summary);
+    statusLabel_->setText(summary);
+    runBtn_->setEnabled(true);
+    logTabs_->setCurrentWidget(vmOutputEdit_);
+
+    if (!success) {
+        QMessageBox::warning(this, tr("VM Execution Issue"), summary);
     }
 }
 

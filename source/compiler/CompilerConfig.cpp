@@ -1,33 +1,35 @@
 #include "qvm/compiler/CompilerConfig.hpp"
-#include <algorithm>
+
+#include <cctype>
+#include <string_view>
 
 namespace qvm {
 
 std::string_view moduleTypeToString(ModuleType type) noexcept {
     switch (type) {
-        case ModuleType::QaGame: return "qagame";
-        case ModuleType::CGame:  return "cgame";
-        case ModuleType::Ui:     return "ui";
-        case ModuleType::Custom: return "custom";
-        default:                 return "unknown";
+    case ModuleType::QaGame: return "qagame";
+    case ModuleType::CGame:  return "cgame";
+    case ModuleType::Ui:     return "ui";
+    case ModuleType::Custom: return "custom";
     }
+    return "unknown";
 }
 
 ModuleType stringToModuleType(std::string_view str) noexcept {
-    std::string lower(str);
-    std::transform(lower.begin(), lower.end(), lower.begin(),
-                   [](unsigned char c) { return std::tolower(c); });
+    // Normalize common aliases.
+    std::string norm(str);
+    for (auto& c : norm) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
 
-    if (lower == "qagame" || lower == "game") {
+    if (norm == "qagame" || norm == "game" || norm == "g" || norm == "gamet")
         return ModuleType::QaGame;
-    }
-    if (lower == "cgame") {
+    if (norm == "cgame" || norm == "cg" || norm == "clientgame")
         return ModuleType::CGame;
-    }
-    if (lower == "ui" || lower == "q3_ui") {
+    if (norm == "ui" || norm == "q3_ui" || norm == "u")
         return ModuleType::Ui;
-    }
-    return ModuleType::Custom;
+    if (norm == "custom" || norm == "cust")
+        return ModuleType::Custom;
+    // Default to qagame.
+    return ModuleType::QaGame;
 }
 
 } // namespace qvm

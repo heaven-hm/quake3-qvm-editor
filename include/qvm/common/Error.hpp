@@ -25,7 +25,12 @@ enum class ErrorCode {
     ProcessExecutionFailed,
     InvalidModule,
     InvalidProjectDirectory,
-    DecompilationFailed
+    DecompilationFailed,
+    // QVM runtime execution errors (added for the embedded q3vm interpreter).
+    RuntimeError,
+    RuntimeFileNotFound,
+    RuntimeInvalidImage,
+    RuntimeExecutionFailed
 };
 
 class Error {

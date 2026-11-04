@@ -5,6 +5,7 @@
 #include "source/gui/widgets/CSyntaxHighlighter.hpp"
 #include <QAction>
 #include <QComboBox>
+#include <QDragEnterEvent>
 #include <QLabel>
 #include <QMainWindow>
 #include <QStackedWidget>
@@ -21,6 +22,10 @@ public:
 
 public slots:
     void applyTheme(EditorTheme theme);
+
+protected:
+    void dragEnterEvent(QDragEnterEvent* event) override;
+    void dropEvent(QDropEvent* event) override;
 
 private slots:
     void onShowCompiler();
@@ -43,7 +48,7 @@ private:
 
     QComboBox* themeCombo_ = nullptr;
     QLabel* statusPill_ = nullptr;
-    EditorTheme currentTheme_{EditorTheme::Dark};
+    EditorTheme currentTheme_{EditorTheme::Light};
 };
 
 } // namespace qvm::gui

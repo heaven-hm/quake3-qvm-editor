@@ -30,11 +30,15 @@ public:
 
 protected:
     void resizeEvent(QResizeEvent* event) override;
+    void keyPressEvent(QKeyEvent* event) override;
 
 private slots:
     void updateLineNumberAreaWidth(int newBlockCount);
     void highlightCurrentLine();
     void updateLineNumberArea(const QRect& rect, int dy);
+    void toggleLineComment();
+    void findText(bool replace);
+    void goToLine();
 
 private:
     QWidget* lineNumberArea_ = nullptr;

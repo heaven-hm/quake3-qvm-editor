@@ -2,11 +2,14 @@
 #include "qvm/common/Version.hpp"
 #include <QApplication>
 #include <QFile>
+#include <QFileInfo>
 #include <QHBoxLayout>
 #include <QIcon>
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QStatusBar>
+#include <QSettings>
+#include <QMimeData>
 #include <QWidget>
 
 namespace qvm::gui {
@@ -15,7 +18,13 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     setWindowIcon(QIcon(":/app_icon.png"));
     setupUi();
     setupMenus();
-    applyTheme(EditorTheme::Dark);
+
+    QSettings settings;
+    const auto savedTheme = static_cast<EditorTheme>(settings.value("ui/theme", static_cast<int>(EditorTheme::Light)).toInt());
+    const int themeIndex = themeCombo_->findData(static_cast<int>(savedTheme));
+    themeCombo_->setCurrentIndex(themeIndex >= 0 ? themeIndex : themeCombo_->findData(static_cast<int>(EditorTheme::Light)));
+    applyTheme(savedTheme);
+    setAcceptDrops(true);
 
     setWindowTitle(QString("%1 v%2 — Quake III QVM Editor").arg(kAppName.data()).arg(kVersion.data()));
     resize(1300, 850);
@@ -135,20 +144,41 @@ void MainWindow::openQvmFile(const QString& filePath) {
 }
 
 void MainWindow::onCompilationSucceeded(const QString& qvmFilePath) {
-    auto reply = QMessageBox::question(
-        this, tr("Compilation Complete"),
-        tr("QVM generated successfully!\n\nWould you like to open it in the decompiler now?"),
-        QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes);
-
-    if (reply == QMessageBox::Yes) {
-        onShowDecompiler();
-        decompilerPage_->loadQvmFile(qvmFilePath);
-    }
+    // Keep the compiler visible after a build so the Run action and its VM
+    // output remain immediately available.  The user can open the generated
+    // file in the decompiler explicitly through File/Open or by launching it.
+    statusBar()->showMessage(tr("Compiled %1. Run it with F5, or open it in the decompiler.")
+                                 .arg(QFileInfo(qvmFilePath).fileName()));
 }
 
 void MainWindow::onThemeChanged(int index) {
     auto theme = static_cast<EditorTheme>(themeCombo_->itemData(index).toInt());
     applyTheme(theme);
+    QSettings().setValue("ui/theme", static_cast<int>(theme));
+}
+
+void MainWindow::dragEnterEvent(QDragEnterEvent* event) {
+    if (!event->mimeData()->hasUrls()) return event->ignore();
+    const QString path = event->mimeData()->urls().value(0).toLocalFile();
+    if (path.endsWith(".qvm", Qt::CaseInsensitive) || path.endsWith(".c", Qt::CaseInsensitive) ||
+        path.endsWith(".h", Qt::CaseInsensitive)) {
+        event->acceptProposedAction();
+    } else {
+        event->ignore();
+    }
+}
+
+void MainWindow::dropEvent(QDropEvent* event) {
+    const QString path = event->mimeData()->urls().value(0).toLocalFile();
+    if (path.endsWith(".qvm", Qt::CaseInsensitive)) {
+        openQvmFile(path);
+    } else if (path.endsWith(".c", Qt::CaseInsensitive) || path.endsWith(".h", Qt::CaseInsensitive)) {
+        onShowCompiler();
+        compilerPage_->openSourceFile(path);
+    } else {
+        return event->ignore();
+    }
+    event->acceptProposedAction();
 }
 
 void MainWindow::applyTheme(EditorTheme theme) {
